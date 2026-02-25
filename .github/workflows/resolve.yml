@@ -1,0 +1,38 @@
+name: Voran Resolve
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: "Base64-encoded resolutionSpecJSON"
+        required: true
+        type: string
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Resolver
+        env:
+          ORACLE_PRIVATE_KEY: ${{ secrets.ORACLE_PRIVATE_KEY }}
+          SPEC_B64: ${{ inputs.spec }}
+        run: |
+          echo "$SPEC_B64" | base64 -d > /tmp/spec.json
+          npx tsx src/cli/run-resolver.ts /tmp/spec.json > /tmp/result.json 2>/dev/null
+          echo "=== Signed Payload ==="
+          cat /tmp/result.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-payload
+          path: /tmp/result.json
+          retention-days: 30

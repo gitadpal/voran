@@ -1,0 +1,23 @@
+{
+  "name": "voran",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "create-market": "tsx src/cli/create-market.ts",
+    "settle-market": "tsx src/cli/settle-market.ts",
+    "run-resolver": "tsx src/cli/run-resolver.ts",
+    "e2e": "bash scripts/local-e2e.sh"
+  },
+  "dependencies": {
+    "viem": "^2.20.0",
+    "jsonpath-plus": "^10.0.0",
+    "@octokit/rest": "^21.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^20.0.0"
+  }
+}

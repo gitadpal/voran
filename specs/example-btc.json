@@ -1,0 +1,29 @@
+{
+  "marketId": "btc-jan1-2026",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.binance.com/api/v3/klines",
+    "query": {
+      "symbol": "BTCUSDT",
+      "interval": "1m",
+      "startTime": 1767220800000,
+      "limit": 1
+    }
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$[0][4]"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 100000
+  },
+  "timestampRule": {
+    "type": "first_candle_after",
+    "utc": "2026-01-01T12:00:00Z"
+  }
+}
