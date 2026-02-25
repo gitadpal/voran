@@ -1,0 +1,28 @@
+{
+  "marketId": "nyc-temp-feb25-2026",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.open-meteo.com/v1/forecast",
+    "query": {
+      "latitude": 40.7128,
+      "longitude": -74.006,
+      "current": "temperature_2m"
+    }
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.current.temperature_2m"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 5
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-02-25T12:00:00Z"
+  }
+}
