@@ -3,17 +3,11 @@
   "source": {
     "type": "http",
     "method": "GET",
-    "url": "https://api.binance.com/api/v3/klines",
-    "query": {
-      "symbol": "BTCUSDT",
-      "interval": "1m",
-      "startTime": 1767220800000,
-      "limit": 1
-    }
+    "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot"
   },
   "extraction": {
     "type": "jsonpath",
-    "path": "$[0][4]"
+    "path": "$.data.amount"
   },
   "transform": {
     "type": "decimal"
