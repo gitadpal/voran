@@ -9,5 +9,6 @@ export function extractValue(rawResponse: string, extraction: ResolutionSpec["ex
     throw new Error(`JSONPath "${extraction.path}" returned no results`);
   }
 
-  return String(results[0]);
+  const value = results[0];
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }

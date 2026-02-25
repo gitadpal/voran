@@ -12,7 +12,7 @@ export interface ResolutionSpec {
     path: string;
   };
   transform: {
-    type: "decimal";
+    type: "decimal" | "score_diff" | "score_sum";
   };
   rule: {
     type: "greater_than" | "less_than" | "equals";

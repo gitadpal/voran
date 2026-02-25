@@ -24,6 +24,7 @@ jobs:
       - name: Run Resolver
         env:
           ORACLE_PRIVATE_KEY: ${{ secrets.ORACLE_PRIVATE_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           SPEC_B64: ${{ inputs.spec }}
         run: |
           echo "$SPEC_B64" | base64 -d > /tmp/spec.json

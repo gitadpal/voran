@@ -8,16 +8,19 @@
     "create-market": "tsx src/cli/create-market.ts",
     "settle-market": "tsx src/cli/settle-market.ts",
     "run-resolver": "tsx src/cli/run-resolver.ts",
-    "e2e": "bash scripts/local-e2e.sh"
+    "e2e": "bash scripts/local-e2e.sh",
+    "generate-epl-spec": "tsx src/cli/generate-epl-spec.ts"
   },
   "dependencies": {
-    "viem": "^2.20.0",
+    "@octokit/rest": "^21.0.0",
     "jsonpath-plus": "^10.0.0",
-    "@octokit/rest": "^21.0.0"
+    "viem": "^2.20.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
+    "@types/node": "^20.0.0",
+    "libsodium-wrappers": "^0.8.2",
     "tsx": "^4.19.0",
-    "@types/node": "^20.0.0"
+    "tweetnacl": "^1.0.3",
+    "typescript": "^5.5.0"
   }
 }

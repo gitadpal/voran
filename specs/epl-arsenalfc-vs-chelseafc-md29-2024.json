@@ -1,0 +1,26 @@
+{
+  "marketId": "epl-arsenalfc-vs-chelseafc-md29-2024",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.football-data.org/v4/competitions/PL/matches",
+    "query": {
+      "matchday": 29,
+      "season": 2024
+    },
+    "headers": {
+      "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY"
+    }
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.matches[?(@.homeTeam.name=='Arsenal FC' && @.awayTeam.name=='Chelsea FC')].score.fullTime"
+  },
+  "transform": {
+    "type": "score_diff"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0
+  }
+}
