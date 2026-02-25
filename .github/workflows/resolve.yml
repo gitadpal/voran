@@ -27,7 +27,7 @@ jobs:
           SPEC_B64: ${{ inputs.spec }}
         run: |
           echo "$SPEC_B64" | base64 -d > /tmp/spec.json
-          npx tsx src/cli/run-resolver.ts /tmp/spec.json > /tmp/result.json 2>/dev/null
+          npx tsx src/cli/run-resolver.ts /tmp/spec.json > /tmp/result.json
           echo "=== Signed Payload ==="
           cat /tmp/result.json
 

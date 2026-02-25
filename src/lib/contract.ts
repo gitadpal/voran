@@ -2,9 +2,11 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 import { readFileSync } from "fs";
-import { resolve } from "path";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-const abiPath = resolve(import.meta.dirname, "../../contracts/out/VoranOracle.sol/VoranOracle.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const abiPath = resolve(__dirname, "../../contracts/out/VoranOracle.sol/VoranOracle.json");
 const artifact = JSON.parse(readFileSync(abiPath, "utf-8"));
 export const voranAbi = artifact.abi;
 
