@@ -21,16 +21,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Resolver
+      - name: Decode spec
         env:
-          ORACLE_PRIVATE_KEY: ${{ secrets.ORACLE_PRIVATE_KEY }}
-          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           SPEC_B64: ${{ inputs.spec }}
         run: |
           echo "$SPEC_B64" | base64 -d > /tmp/spec.json
+          echo "=== Resolution Spec ==="
+          cat /tmp/spec.json
+
+      - name: Run Resolver (audit log below)
+        env:
+          ORACLE_PRIVATE_KEY: ${{ secrets.ORACLE_PRIVATE_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: |
           npx tsx src/cli/run-resolver.ts /tmp/spec.json > /tmp/result.json
-          echo "=== Signed Payload ==="
-          cat /tmp/result.json
+
+      - name: Signed Payload
+        run: cat /tmp/result.json
 
       - uses: actions/upload-artifact@v4
         with:

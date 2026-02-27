@@ -35,3 +35,7 @@ export async function hashAndSign(
     signature,
   };
 }
+
+export function getSignerAddress(privateKey: `0x${string}`): string {
+  return privateKeyToAccount(privateKey).address;
+}

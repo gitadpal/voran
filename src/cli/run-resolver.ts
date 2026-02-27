@@ -12,8 +12,6 @@ if (!specPath) {
 
 const spec: ResolutionSpec = JSON.parse(readFileSync(specPath, "utf-8"));
 
-console.error("Resolving spec:", spec.marketId);
-
 const payload = await resolve(spec, privateKey);
 
 // Output signed payload as JSON to stdout

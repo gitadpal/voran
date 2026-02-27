@@ -1,4 +1,5 @@
 import type { ResolutionSpec } from "../types.js";
+import { log } from "./log.js";
 
 /**
  * Resolve `$env:VAR_NAME` placeholders in header values from environment variables.
@@ -33,14 +34,20 @@ export async function fetchData(source: ResolutionSpec["source"]): Promise<strin
     }
   }
 
+  const resolvedHdrs = resolveHeaders(source.headers);
+  log.request(url.toString(), source.method, resolvedHdrs, source.headers);
+
   const response = await fetch(url.toString(), {
     method: source.method,
-    headers: resolveHeaders(source.headers),
+    headers: resolvedHdrs,
   });
+
+  const body = await response.text();
+  log.response(response.status, body.length, body);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  return response.text();
+  return body;
 }
