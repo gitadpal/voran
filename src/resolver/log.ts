@@ -102,6 +102,10 @@ export const log = {
     line("  Executed at", `${executedAt} (${new Date(executedAt * 1000).toISOString()})`);
   },
 
+  screenshot(path: string) {
+    line("  Screenshot saved", path);
+  },
+
   done(signature: string) {
     separator();
     line("SETTLEMENT PAYLOAD SIGNED");

@@ -1,5 +1,13 @@
+import os from "os";
+import path from "path";
 import type { ResolutionSpec } from "../types.js";
 import { log } from "./log.js";
+
+let lastScreenshotPath: string | undefined;
+
+export function getLastScreenshotPath(): string | undefined {
+  return lastScreenshotPath;
+}
 
 /**
  * Resolve `$env:VAR_NAME` placeholders in header values from environment variables.
@@ -65,6 +73,11 @@ export async function fetchBrowser(source: { url: string; waitFor?: string }): P
     if (source.waitFor) {
       await page.waitForSelector(source.waitFor, { timeout: 15000 });
     }
+
+    const screenshotDir = process.env.VORAN_SCREENSHOT_DIR || os.tmpdir();
+    const screenshotPath = path.join(screenshotDir, "voran-browser-screenshot.png");
+    await page.screenshot({ fullPage: true, path: screenshotPath });
+    lastScreenshotPath = screenshotPath;
 
     return await page.content();
   } finally {

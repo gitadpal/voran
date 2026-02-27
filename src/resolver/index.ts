@@ -1,4 +1,4 @@
-import { fetchSource } from "./fetch.js";
+import { fetchSource, getLastScreenshotPath } from "./fetch.js";
 import { extractValue } from "./extract.js";
 import { transformValue } from "./transform.js";
 import { evaluateRule } from "./evaluate.js";
@@ -14,6 +14,11 @@ export async function resolve(
 
   // Step 2+3 (request + response) are logged inside fetchSource for HTTP sources
   const rawResponse = await fetchSource(spec.source);
+
+  const screenshotPath = getLastScreenshotPath();
+  if (screenshotPath) {
+    log.screenshot(screenshotPath);
+  }
 
   const extracted = extractValue(rawResponse, spec.extraction);
   log.extraction(spec.extraction, extracted);

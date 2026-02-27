@@ -52,5 +52,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: signed-payload-esports-e2e
-          path: /tmp/result.json
+          path: |
+            /tmp/result.json
+            /tmp/voran-browser-screenshot.png
           retention-days: 7

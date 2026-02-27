@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { resolve } from "../resolver/index.js";
+import { getLastScreenshotPath } from "../resolver/fetch.js";
 import type { ResolutionSpec } from "../types.js";
 
 const specPath = process.argv[2];
@@ -16,3 +17,8 @@ const payload = await resolve(spec, privateKey);
 
 // Output signed payload as JSON to stdout
 console.log(JSON.stringify(payload, null, 2));
+
+const screenshotPath = getLastScreenshotPath();
+if (screenshotPath) {
+  console.error(`Screenshot: ${screenshotPath}`);
+}
