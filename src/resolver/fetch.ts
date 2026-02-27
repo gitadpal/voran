@@ -54,7 +54,10 @@ async function fetchData(source: Extract<ResolutionSpec["source"], { type: "http
 
 export async function fetchBrowser(source: { url: string; waitFor?: string }): Promise<string> {
   const puppeteer = await import("puppeteer");
-  const browser = await puppeteer.default.launch({ headless: true });
+  const browser = await puppeteer.default.launch({
+    headless: true,
+    args: process.env.CI ? ["--no-sandbox", "--disable-setuid-sandbox"] : [],
+  });
   try {
     const page = await browser.newPage();
     await page.goto(source.url, { waitUntil: "networkidle2", timeout: 30000 });
