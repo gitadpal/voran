@@ -1,7 +1,8 @@
 import { Octokit } from "@octokit/rest";
+import type { ResolutionSpec } from "../types.js";
 
 export async function triggerResolverWorkflow(
-  spec: object,
+  spec: ResolutionSpec,
   options: {
     token: string;
     owner: string;
@@ -19,6 +20,7 @@ export async function triggerResolverWorkflow(
     workflow_id: "resolve.yml",
     ref: options.ref || "main",
     inputs: {
+      market_id: spec.marketId,
       spec: specB64,
     },
   });

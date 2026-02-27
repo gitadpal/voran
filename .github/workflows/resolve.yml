@@ -1,8 +1,14 @@
 name: Voran Resolve
 
+run-name: "Resolve: ${{ inputs.market_id }}"
+
 on:
   workflow_dispatch:
     inputs:
+      market_id:
+        description: "Human-readable market identifier (e.g. epl-arsenal-vs-chelsea-md29)"
+        required: true
+        type: string
       spec:
         description: "Base64-encoded resolutionSpecJSON"
         required: true
@@ -29,7 +35,7 @@ jobs:
           echo "=== Resolution Spec ==="
           cat /tmp/spec.json
 
-      - name: Run Resolver (audit log below)
+      - name: "Run Resolver: ${{ inputs.market_id }}"
         env:
           ORACLE_PRIVATE_KEY: ${{ secrets.ORACLE_PRIVATE_KEY }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
@@ -41,6 +47,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: signed-payload
+          name: "signed-payload-${{ inputs.market_id }}"
           path: /tmp/result.json
           retention-days: 30
