@@ -4,9 +4,12 @@ Deterministic single-event oracle for on-chain settlement. AI generates the reso
 
 ## How it works
 
-```
-Natural language       AI agent          Deterministic resolver        Smart contract
-"Will BTC > $100k?" ──> ResolutionSpec ──> fetch → extract → evaluate ──> signed payload ──> settle
+```mermaid
+flowchart LR
+    A["Natural language\n&quot;Will BTC > $100k?&quot;"] -->|AI agent| B[ResolutionSpec]
+    B -->|Deterministic resolver| C["fetch → extract → evaluate"]
+    C --> D[Signed payload]
+    D -->|Smart contract| E[Settle]
 ```
 
 **Layer A** (flexible) — An agentic AI generates structured `ResolutionSpec` JSON from natural language. It can fetch URLs, inspect responses, test extractions, and iterate until the spec works.
@@ -150,13 +153,13 @@ npm run generate-forex-spec -- \
 
 ## Resolver pipeline
 
-```
-Step 1  Load spec
-Step 2  Fetch data (HTTP or browser)
-Step 3  Receive response
-Step 4  Extract value (JSONPath or script sandbox)
-Step 5  Transform + evaluate rule
-Step 6  Hash + sign (keccak256 + EIP-191)
+```mermaid
+flowchart TD
+    S1[Load spec] --> S2[Fetch data\nHTTP or browser]
+    S2 --> S3[Receive response]
+    S3 --> S4[Extract value\nJSONPath or script sandbox]
+    S4 --> S5[Transform + evaluate rule]
+    S5 --> S6["Hash + sign\n(keccak256 + EIP-191)"]
 ```
 
 Output is a signed payload ready for on-chain settlement:
