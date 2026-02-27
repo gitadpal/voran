@@ -93,7 +93,7 @@ This layer settles funds.
 1. Human defines market condition.
 2. AI layer compiles into `resolutionSpecJSON`.
 3. Spec is reviewed.
-4. `specHash = sha256(resolutionSpecJSON)`
+4. `specHash = keccak256(resolutionSpecJSON)`
 5. Smart contract stores:
 
    * `specHash`
@@ -136,7 +136,7 @@ Workflow YAML is never regenerated per market.
 
 Structured deterministic spec.
 
-Example:
+Example (price check):
 
 ```json
 {
@@ -144,17 +144,11 @@ Example:
   "source": {
     "type": "http",
     "method": "GET",
-    "url": "https://api.binance.com/api/v3/klines",
-    "query": {
-      "symbol": "BTCUSDT",
-      "interval": "1m",
-      "startTime": 1767220800000,
-      "limit": 1
-    }
+    "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot"
   },
   "extraction": {
     "type": "jsonpath",
-    "path": "$[0][4]"
+    "path": "$.data.amount"
   },
   "transform": {
     "type": "decimal"
@@ -169,6 +163,46 @@ Example:
   }
 }
 ```
+
+Example (EPL match result — API key referenced via `$env:` placeholder):
+
+```json
+{
+  "marketId": "epl-arsenalfc-vs-chelseafc-md29-2024",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.football-data.org/v4/competitions/PL/matches",
+    "query": { "matchday": 29, "season": 2024 },
+    "headers": { "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY" }
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.matches[?(@.homeTeam.name=='Arsenal FC' && @.awayTeam.name=='Chelsea FC')].score.fullTime"
+  },
+  "transform": {
+    "type": "score_diff"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0
+  }
+}
+```
+
+Supported transform types:
+
+* `decimal` — parse extracted value as a number
+* `score_diff` — compute home - away from a `{home, away}` score object
+* `score_sum` — compute home + away from a `{home, away}` score object
+
+Supported rule types:
+
+* `greater_than` — value > threshold
+* `less_than` — value < threshold
+* `equals` — value = threshold
+
+Header values support `$env:VAR_NAME` syntax to reference environment variables at runtime, keeping API keys out of committed spec files.
 
 Constraints:
 
@@ -190,17 +224,17 @@ function run(spec):
 
     rawResponse = http_fetch(spec.source)
 
-    rawHash = sha256(rawResponse)
+    rawHash = keccak256(rawResponse)
 
     extracted = apply_jsonpath(rawResponse, spec.extraction)
 
-    transformed = apply_transform(extracted)
+    transformed = apply_transform(extracted, spec.transform)
 
     result = evaluate_rule(transformed, spec.rule)
 
     payload = {
-        marketId: spec.marketId,
-        specHash: sha256(spec),
+        marketId: keccak256(spec.marketId),
+        specHash: keccak256(spec),
         rawHash: rawHash,
         parsedValue: transformed,
         result: result,
@@ -225,27 +259,30 @@ Final signed structure:
 
 ```json
 {
-  "marketId": "...",
-  "specHash": "...",
-  "rawHash": "...",
-  "parsedValue": "...",
+  "marketId": "0x...",
+  "specHash": "0x...",
+  "rawHash": "0x...",
+  "parsedValue": "105000.50",
   "result": true,
-  "workflowCommitHash": "...",
-  "executedAt": 1767220860
+  "executedAt": 1767220860,
+  "signature": "0x..."
 }
 ```
 
-Signature:
+Signature process:
 
 ```
-signature = sign(sha256(payload))
+messageHash = keccak256(abi.encodePacked(marketId, specHash, rawHash, parsedValue, result, executedAt))
+signature = eip191_sign(messageHash, privateKey)
 ```
+
+The contract reconstructs `messageHash` using the same `abi.encodePacked` layout and verifies via `ecrecover`.
 
 Signing key:
 
-* Registered on-chain
-* Controlled by DID identity
-* Stored securely (HSM recommended in production)
+* Registered on-chain (oracle address)
+* ECDSA secp256k1 key pair (Ethereum-native)
+* Stored securely (GitHub Secrets for CI, HSM recommended in production)
 
 ---
 
