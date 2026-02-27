@@ -67,10 +67,15 @@ export const log = {
     console.error(preview);
   },
 
-  extraction(path: string, extracted: string) {
+  extraction(extraction: { type: string; path?: string; code?: string }, extracted: string) {
     separator();
     line("Step 4/6 — Extraction + Transform");
-    line("  JSONPath", path);
+    if (extraction.type === "jsonpath" && extraction.path) {
+      line("  JSONPath", extraction.path);
+    } else if (extraction.type === "script" && extraction.code) {
+      const preview = extraction.code.length > 80 ? extraction.code.slice(0, 80) + "..." : extraction.code;
+      line("  Script", `${extraction.code.length} chars — ${preview}`);
+    }
     line("  Extracted", extracted);
   },
 

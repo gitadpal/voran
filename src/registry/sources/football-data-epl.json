@@ -1,0 +1,52 @@
+{
+  "id": "football-data-epl",
+  "name": "Football-Data.org EPL Matches",
+  "description": "English Premier League match results from football-data.org. Provides scores, team names, matchday info. Requires API key.",
+  "category": "sports",
+  "api": {
+    "baseUrl": "https://api.football-data.org",
+    "pathTemplate": "/v4/competitions/PL/matches",
+    "method": "GET",
+    "queryParams": {
+      "matchday": "{MATCHDAY}",
+      "season": "{SEASON}"
+    },
+    "headers": {
+      "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY"
+    },
+    "auth": {
+      "type": "header",
+      "headerName": "X-Auth-Token",
+      "envVar": "FOOTBALL_DATA_API_KEY"
+    }
+  },
+  "response": {
+    "exampleJson": {
+      "matches": [
+        {
+          "homeTeam": { "name": "Arsenal FC" },
+          "awayTeam": { "name": "Chelsea FC" },
+          "score": {
+            "fullTime": { "home": 2, "away": 1 }
+          }
+        }
+      ]
+    },
+    "commonPaths": [
+      {
+        "path": "$.matches[?(@.homeTeam.name=='{HOME}' && @.awayTeam.name=='{AWAY}')].score.fullTime",
+        "description": "Full-time score object {home, away} for a specific match filtered by team names"
+      },
+      {
+        "path": "$.matches[?(@.homeTeam.name=='{HOME}' && @.awayTeam.name=='{AWAY}')].score.fullTime.home",
+        "description": "Home team goals for a specific match"
+      },
+      {
+        "path": "$.matches[?(@.homeTeam.name=='{HOME}' && @.awayTeam.name=='{AWAY}')].score.fullTime.away",
+        "description": "Away team goals for a specific match"
+      }
+    ]
+  },
+  "applicableTransforms": ["score_diff", "score_sum", "decimal"],
+  "applicableRules": ["greater_than", "less_than", "equals"]
+}

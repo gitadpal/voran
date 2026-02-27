@@ -1,0 +1,36 @@
+{
+  "id": "coinbase-spot",
+  "name": "Coinbase Spot Price",
+  "description": "Real-time cryptocurrency spot prices from Coinbase. Supports BTC, ETH, and other major cryptocurrencies paired with USD or other fiat currencies.",
+  "category": "crypto",
+  "api": {
+    "baseUrl": "https://api.coinbase.com",
+    "pathTemplate": "/v2/prices/{PAIR}/spot",
+    "method": "GET"
+  },
+  "response": {
+    "exampleJson": {
+      "data": {
+        "base": "BTC",
+        "currency": "USD",
+        "amount": "97123.45"
+      }
+    },
+    "commonPaths": [
+      {
+        "path": "$.data.amount",
+        "description": "The spot price as a decimal string"
+      },
+      {
+        "path": "$.data.base",
+        "description": "The base currency (e.g. BTC)"
+      },
+      {
+        "path": "$.data.currency",
+        "description": "The quote currency (e.g. USD)"
+      }
+    ]
+  },
+  "applicableTransforms": ["decimal"],
+  "applicableRules": ["greater_than", "less_than", "equals"]
+}

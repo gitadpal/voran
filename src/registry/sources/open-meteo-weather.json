@@ -1,0 +1,40 @@
+{
+  "id": "open-meteo-weather",
+  "name": "Open-Meteo Weather Forecast",
+  "description": "Weather forecasts from Open-Meteo. Provides temperature, precipitation, wind speed, and other meteorological data. No API key required. Specify latitude and longitude for any location.",
+  "category": "weather",
+  "api": {
+    "baseUrl": "https://api.open-meteo.com",
+    "pathTemplate": "/v1/forecast",
+    "method": "GET",
+    "queryParams": {
+      "latitude": "{LATITUDE}",
+      "longitude": "{LONGITUDE}",
+      "current": "temperature_2m"
+    }
+  },
+  "response": {
+    "exampleJson": {
+      "current": {
+        "time": "2026-02-27T12:00",
+        "interval": 900,
+        "temperature_2m": 7.3
+      },
+      "current_units": {
+        "temperature_2m": "°C"
+      }
+    },
+    "commonPaths": [
+      {
+        "path": "$.current.temperature_2m",
+        "description": "Current temperature in Celsius at 2 meters above ground"
+      },
+      {
+        "path": "$.current.time",
+        "description": "The timestamp of the current observation"
+      }
+    ]
+  },
+  "applicableTransforms": ["decimal"],
+  "applicableRules": ["greater_than", "less_than", "equals"]
+}

@@ -1,0 +1,20 @@
+{
+  "marketId": "lpl-weibo-vs-bilibili-game1-week1-2026",
+  "source": {
+    "type": "browser",
+    "url": "https://gol.gg/game/stats/73160/page-game/",
+    "waitFor": ".blue-line-header"
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  var timeMatch = rawResponse.match(/Game Time[\\s\\S]*?(\\d+:\\d+)/);\n  if (!timeMatch || timeMatch[1] === '0:00') {\n    throw new Error('Game has not been played yet (game time is 0:00)');\n  }\n  var blueMatch = rawResponse.match(/blue-line-header\">\\s*<a[^>]*>([^<]+)<\\/a>\\s*-\\s*(WIN|LOSS)/i);\n  var redMatch = rawResponse.match(/red-line-header\">\\s*<a[^>]*>([^<]+)<\\/a>\\s*-\\s*(WIN|LOSS)/i);\n  if (!blueMatch || !redMatch) throw new Error('Could not find team results on page');\n  var weiboResult;\n  if (blueMatch[1].indexOf('Weibo') !== -1) {\n    weiboResult = blueMatch[2];\n  } else if (redMatch[1].indexOf('Weibo') !== -1) {\n    weiboResult = redMatch[2];\n  } else {\n    throw new Error('Weibo Gaming not found in match');\n  }\n  return weiboResult === 'WIN' ? '1' : '0';\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0.5
+  }
+}

@@ -10,11 +10,19 @@
     "run-resolver": "tsx src/cli/run-resolver.ts",
     "e2e": "bash scripts/local-e2e.sh",
     "generate-epl-spec": "tsx src/cli/generate-epl-spec.ts",
-    "generate-forex-spec": "tsx src/cli/generate-forex-spec.ts"
+    "generate-forex-spec": "tsx src/cli/generate-forex-spec.ts",
+    "generate-spec": "tsx src/cli/generate-spec.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.48",
+    "@ai-sdk/gateway": "^3.0.57",
+    "@ai-sdk/google": "^3.0.33",
+    "@ai-sdk/openai": "^3.0.36",
+    "@ai-sdk/openai-compatible": "^2.0.30",
     "@octokit/rest": "^21.0.0",
+    "ai": "^6.0.103",
     "jsonpath-plus": "^10.0.0",
+    "puppeteer": "^24.37.5",
     "viem": "^2.20.0"
   },
   "devDependencies": {

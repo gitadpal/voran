@@ -1,4 +1,4 @@
-import { fetchData } from "./fetch.js";
+import { fetchSource } from "./fetch.js";
 import { extractValue } from "./extract.js";
 import { transformValue } from "./transform.js";
 import { evaluateRule } from "./evaluate.js";
@@ -12,11 +12,11 @@ export async function resolve(
 ): Promise<SignedPayload> {
   log.specLoaded(spec);
 
-  // Step 2+3 (request + response) are logged inside fetchData
-  const rawResponse = await fetchData(spec.source);
+  // Step 2+3 (request + response) are logged inside fetchSource for HTTP sources
+  const rawResponse = await fetchSource(spec.source);
 
   const extracted = extractValue(rawResponse, spec.extraction);
-  log.extraction(spec.extraction.path, extracted);
+  log.extraction(spec.extraction, extracted);
 
   const transformed = transformValue(extracted, spec.transform);
   log.transform(spec.transform.type, extracted, transformed);

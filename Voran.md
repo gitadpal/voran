@@ -15,8 +15,16 @@ It replaces complex oracle networks for use cases that require:
 * Transparent auditability
 * Cryptographic verifiability
 
-Voran is not a data feed network.
-It is a **verifiable execution primitive**.
+Voran is a **verifiable execution primitive** that provides:
+
+* Transparent execution
+* Deterministic settlement
+* Spec-driven logic
+* Minimal infrastructure
+* Clear trust boundaries
+* Reduced complexity compared to traditional oracle networks
+
+Voran is meant to be a minimal, elegant primitive for single-event resolution in Web3 systems.
 
 ---
 
@@ -378,30 +386,10 @@ Architecture remains stable due to spec-driven design.
 
 ## 14. Key Insight
 
-Voran is not:
-
-“An AI oracle.”
-
-It is:
-
-> An AI-generated deterministic oracle.
+Voran is `an AI-generated deterministic oracle` rather than “an AI oracle”.
 
 AI helps create specs.
 Deterministic engine settles markets.
 
 This separation ensures both flexibility and finality.
 
----
-
-## 15. Summary
-
-Voran provides:
-
-* Transparent execution
-* Deterministic settlement
-* Spec-driven logic
-* Minimal infrastructure
-* Clear trust boundaries
-* Reduced complexity compared to traditional oracle networks
-
-It is a minimal, elegant primitive for single-event resolution in Web3 systems.

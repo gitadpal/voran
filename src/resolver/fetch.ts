@@ -5,7 +5,7 @@ import { log } from "./log.js";
  * Resolve `$env:VAR_NAME` placeholders in header values from environment variables.
  * This keeps secrets out of committed spec files.
  */
-function resolveHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
+export function resolveHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
   if (!headers) return undefined;
 
   const resolved: Record<string, string> = {};
@@ -25,7 +25,7 @@ function resolveHeaders(headers?: Record<string, string>): Record<string, string
   return resolved;
 }
 
-export async function fetchData(source: ResolutionSpec["source"]): Promise<string> {
+async function fetchData(source: Extract<ResolutionSpec["source"], { type: "http" }>): Promise<string> {
   const url = new URL(source.url);
 
   if (source.query) {
@@ -50,4 +50,28 @@ export async function fetchData(source: ResolutionSpec["source"]): Promise<strin
   }
 
   return body;
+}
+
+export async function fetchBrowser(source: { url: string; waitFor?: string }): Promise<string> {
+  const puppeteer = await import("puppeteer");
+  const browser = await puppeteer.default.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(source.url, { waitUntil: "networkidle2", timeout: 30000 });
+
+    if (source.waitFor) {
+      await page.waitForSelector(source.waitFor, { timeout: 15000 });
+    }
+
+    return await page.content();
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function fetchSource(source: ResolutionSpec["source"]): Promise<string> {
+  if (source.type === "browser") {
+    return fetchBrowser(source);
+  }
+  return fetchData(source);
 }

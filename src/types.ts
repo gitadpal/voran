@@ -1,16 +1,21 @@
 export interface ResolutionSpec {
   marketId: string;
-  source: {
-    type: "http";
-    method: "GET" | "POST";
-    url: string;
-    query?: Record<string, string | number>;
-    headers?: Record<string, string>;
-  };
-  extraction: {
-    type: "jsonpath";
-    path: string;
-  };
+  source:
+    | {
+        type: "http";
+        method: "GET" | "POST";
+        url: string;
+        query?: Record<string, string | number>;
+        headers?: Record<string, string>;
+      }
+    | {
+        type: "browser";
+        url: string;
+        waitFor?: string;
+      };
+  extraction:
+    | { type: "jsonpath"; path: string }
+    | { type: "script"; lang: "javascript"; code: string };
   transform: {
     type: "decimal" | "score_diff" | "score_sum";
   };

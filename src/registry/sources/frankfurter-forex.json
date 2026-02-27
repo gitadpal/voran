@@ -1,0 +1,41 @@
+{
+  "id": "frankfurter-forex",
+  "name": "Frankfurter ECB Forex Rates",
+  "description": "Official ECB reference exchange rates via the Frankfurter API. Supports EUR-based pairs and cross rates for 30+ currencies. No API key required.",
+  "category": "forex",
+  "api": {
+    "baseUrl": "https://api.frankfurter.dev",
+    "pathTemplate": "/v1/latest",
+    "method": "GET",
+    "queryParams": {
+      "base": "{BASE}",
+      "symbols": "{QUOTE}"
+    }
+  },
+  "response": {
+    "exampleJson": {
+      "amount": 1,
+      "base": "EUR",
+      "date": "2026-02-27",
+      "rates": {
+        "USD": 1.0845
+      }
+    },
+    "commonPaths": [
+      {
+        "path": "$.rates.{QUOTE}",
+        "description": "The exchange rate for the quote currency"
+      },
+      {
+        "path": "$.base",
+        "description": "The base currency"
+      },
+      {
+        "path": "$.date",
+        "description": "The date of the rate"
+      }
+    ]
+  },
+  "applicableTransforms": ["decimal"],
+  "applicableRules": ["greater_than", "less_than", "equals"]
+}
