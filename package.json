@@ -9,7 +9,8 @@
     "settle-market": "tsx src/cli/settle-market.ts",
     "run-resolver": "tsx src/cli/run-resolver.ts",
     "e2e": "bash scripts/local-e2e.sh",
-    "generate-epl-spec": "tsx src/cli/generate-epl-spec.ts"
+    "generate-epl-spec": "tsx src/cli/generate-epl-spec.ts",
+    "generate-forex-spec": "tsx src/cli/generate-forex-spec.ts"
   },
   "dependencies": {
     "@octokit/rest": "^21.0.0",

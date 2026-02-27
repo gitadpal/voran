@@ -1,0 +1,23 @@
+{
+  "marketId": "forex-eurusd-greaterthan-1.1-latest",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.frankfurter.dev/v1/latest",
+    "query": {
+      "base": "EUR",
+      "symbols": "USD"
+    }
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.rates.USD"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 1.1
+  }
+}
