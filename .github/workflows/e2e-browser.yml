@@ -1,9 +1,15 @@
 name: E2E Browser Spec
 
-run-name: "E2E: browser-rendered esports spec"
+run-name: "E2E: ${{ inputs.spec_path || 'specs/lpl-wbg-vs-blg-game1-week1-2026.json' }}"
 
 on:
   workflow_dispatch:
+    inputs:
+      spec_path:
+        description: "Path to spec JSON file (relative to repo root)"
+        required: false
+        default: "specs/lpl-wbg-vs-blg-game1-week1-2026.json"
+        type: string
 
 jobs:
   resolve-browser-spec:
@@ -21,11 +27,11 @@ jobs:
       - name: Install Chromium dependencies
         run: npx puppeteer browsers install chrome
 
-      - name: "Resolve: lpl-wbg-vs-blg-game1-week1-2026 (browser)"
+      - name: "Resolve: ${{ inputs.spec_path }}"
         run: |
-          npx tsx src/cli/run-resolver.ts specs/lpl-wbg-vs-blg-game1-week1-2026.json > /tmp/result.json
+          npx tsx src/cli/run-resolver.ts "${{ inputs.spec_path }}" > /tmp/result.json
 
-      - name: Verify result
+      - name: Show result
         run: |
           echo "=== Signed Payload ==="
           cat /tmp/result.json
@@ -36,18 +42,6 @@ jobs:
 
           echo "parsedValue: $PARSED_VALUE"
           echo "result: $RESULT"
-
-          if [ "$PARSED_VALUE" != "1" ]; then
-            echo "FAIL: expected parsedValue=1 (Weibo win), got $PARSED_VALUE"
-            exit 1
-          fi
-
-          if [ "$RESULT" != "true" ]; then
-            echo "FAIL: expected result=true, got $RESULT"
-            exit 1
-          fi
-
-          echo "PASS: browser spec resolved correctly"
 
       - uses: actions/upload-artifact@v4
         with:
