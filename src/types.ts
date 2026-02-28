@@ -59,6 +59,14 @@ export interface TemplateSpec {
   params: TemplateParam[];
 }
 
+export interface SavedTemplate {
+  id: string;
+  description: string;
+  keywords: string[];
+  template: TemplateSpec;
+  createdAt: string;
+}
+
 export interface SignedPayload extends ResolverPayload {
   signature: `0x${string}`;
 }

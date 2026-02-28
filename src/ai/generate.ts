@@ -3,7 +3,7 @@ import { buildSystemPrompt } from "./prompt.js";
 import { resolveModel } from "./llm.js";
 import { validateSpec, dryRunSpec } from "./validate.js";
 import { expandTemplate } from "./template.js";
-import { fetch_url, search_registry, test_extraction, submit_spec, submit_template } from "./tools.js";
+import { fetch_url, search_registry, test_extraction, submit_spec, submit_template, search_templates } from "./tools.js";
 import type { ValidationResult, DryRunResult } from "./validate.js";
 import type { ResolutionSpec, TemplateSpec } from "../types.js";
 
@@ -46,7 +46,7 @@ export async function generateSpec(
   const { providerName, modelId, model } = await resolveModel(modelFlag);
   console.error(`Using model: ${providerName}/${modelId}`);
 
-  const tools = { fetch_url, search_registry, test_extraction, submit_spec, submit_template };
+  const tools = { fetch_url, search_registry, test_extraction, submit_spec, submit_template, search_templates };
 
   const { steps } = await generateText({
     model,
@@ -168,4 +168,158 @@ export async function generateSpec(
     dryRunResult,
     steps: steps.length,
   };
+}
+
+export interface ChatOptions extends GenerateOptions {
+  onAssistantMessage: (text: string) => void;
+  getUserInput: () => Promise<string>;
+}
+
+export async function generateSpecChat(
+  initialPrompt: string,
+  options: ChatOptions
+): Promise<GenerateResult> {
+  const { dryRun = false, verbose = false, maxSteps = 15, model: modelFlag } = options;
+
+  const systemPrompt = buildSystemPrompt({ chatMode: true });
+  const { providerName, modelId, model } = await resolveModel(modelFlag);
+  console.error(`Using model: ${providerName}/${modelId}`);
+
+  const tools = { fetch_url, search_registry, test_extraction, submit_spec, submit_template, search_templates };
+
+  // Multi-turn message array
+  type Message = { role: "user"; content: string } | { role: "assistant"; content: string };
+  let messages: Message[] = [{ role: "user", content: initialPrompt }];
+  let totalSteps = 0;
+  const maxTotalSteps = maxSteps * 3;
+
+  let submittedSpec: ResolutionSpec | undefined;
+  let submittedValidation: ValidationResult | undefined;
+  let submittedTemplate: TemplateSpec | undefined;
+  let lastErrors: string[] = [];
+
+  while (totalSteps < maxTotalSteps) {
+    const result = await generateText({
+      model,
+      system: systemPrompt,
+      messages,
+      tools,
+      stopWhen: stepCountIs(maxSteps),
+      onStepFinish: ({ toolCalls, toolResults, text }) => {
+        if (verbose && text) {
+          stderr(`\n--- LLM Response ---\n${text}\n`, true);
+        }
+        if (verbose && toolCalls && toolCalls.length > 0) {
+          for (const tc of toolCalls) {
+            const argsJson = JSON.stringify((tc as Record<string, unknown>).args, null, 2);
+            stderr(`\n>>> Tool call: ${tc.toolName}\n${argsJson}`, true);
+          }
+        }
+        if (verbose && toolResults && toolResults.length > 0) {
+          for (const tr of toolResults) {
+            const resultJson = JSON.stringify(tr.output, null, 2);
+            const truncated = resultJson.length > 3000
+              ? resultJson.slice(0, 3000) + "\n  ... (truncated)"
+              : resultJson;
+            stderr(`\n<<< Tool result: ${tr.toolName}\n${truncated}`, true);
+          }
+        }
+      },
+    });
+
+    totalSteps += result.steps.length;
+
+    // Check for terminal tool calls in this turn
+    for (const step of result.steps) {
+      if (!step.toolResults) continue;
+      for (const tr of step.toolResults) {
+        if (tr.toolName === "submit_spec") {
+          const output = tr.output as Record<string, unknown>;
+          if (output.success && output.spec) {
+            submittedSpec = output.spec as ResolutionSpec;
+            submittedValidation = validateSpec(submittedSpec);
+          } else if (!output.success && output.errors) {
+            lastErrors = output.errors as string[];
+          }
+        } else if (tr.toolName === "submit_template") {
+          const output = tr.output as Record<string, unknown>;
+          if (output.success && output.template) {
+            submittedTemplate = output.template as TemplateSpec;
+          } else if (!output.success && output.errors) {
+            lastErrors = output.errors as string[];
+          }
+        }
+      }
+    }
+
+    // If spec/template submitted successfully, break out
+    if (submittedSpec || submittedTemplate) break;
+
+    // Append the response messages to conversation for next turn
+    const responseMessages = result.response.messages;
+    messages = [...messages, ...responseMessages] as typeof messages;
+
+    // Display final text to user and wait for input
+    const finalText = result.text;
+    if (finalText) {
+      options.onAssistantMessage(finalText);
+    }
+
+    const userInput = await options.getUserInput();
+    if (userInput === "/quit" || userInput === "/exit") {
+      throw new Error("Conversation ended by user.");
+    }
+
+    messages.push({ role: "user", content: userInput });
+  }
+
+  stderr(`Chat completed in ${totalSteps} total step(s)`, verbose);
+
+  // Template path
+  if (submittedTemplate) {
+    const specs = expandTemplate(submittedTemplate);
+    stderr(`Template expanded to ${specs.length} spec(s)`, verbose);
+
+    let dryRunResult: DryRunResult | undefined;
+    if (dryRun && specs.length > 0) {
+      stderr("Running final dry-run validation on first variant...", verbose);
+      dryRunResult = await dryRunSpec(specs[0]);
+      if (dryRunResult.success) {
+        stderr(
+          `Dry-run success: extracted=${dryRunResult.extractedValue}, transformed=${dryRunResult.transformedValue}, result=${dryRunResult.ruleResult}`,
+          verbose
+        );
+      } else {
+        stderr(`Dry-run failed: ${dryRunResult.error}`, verbose);
+      }
+    }
+
+    return { type: "template", template: submittedTemplate, specs, dryRunResult, steps: totalSteps };
+  }
+
+  // Single spec path
+  if (!submittedSpec) {
+    const errorDetail = lastErrors.length > 0
+      ? `Last validation errors: ${lastErrors.join(", ")}`
+      : "The agent did not call submit_spec or submit_template";
+    throw new Error(`Failed to generate valid spec after ${totalSteps} steps. ${errorDetail}`);
+  }
+
+  const validation = submittedValidation!;
+
+  let dryRunResult: DryRunResult | undefined;
+  if (dryRun) {
+    stderr("Running final dry-run validation...", verbose);
+    dryRunResult = await dryRunSpec(submittedSpec);
+    if (dryRunResult.success) {
+      stderr(
+        `Dry-run success: extracted=${dryRunResult.extractedValue}, transformed=${dryRunResult.transformedValue}, result=${dryRunResult.ruleResult}`,
+        verbose
+      );
+    } else {
+      stderr(`Dry-run failed: ${dryRunResult.error}`, verbose);
+    }
+  }
+
+  return { type: "single", spec: submittedSpec, validation, dryRunResult, steps: totalSteps };
 }

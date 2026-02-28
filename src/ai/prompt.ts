@@ -2,12 +2,17 @@ import { readFileSync, readdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { loadRegistry } from "../registry/index.js";
+import { loadTemplates } from "./template-library.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = resolve(__dirname, "../../specs");
 const TYPES_FILE = resolve(__dirname, "../types.ts");
 
-export function buildSystemPrompt(): string {
+export interface PromptOptions {
+  chatMode?: boolean;
+}
+
+export function buildSystemPrompt(options: PromptOptions = {}): string {
   const sections: string[] = [];
 
   // 1. Role and workflow
@@ -184,6 +189,25 @@ You can also use \`search_registry\` to search for matching sources by keyword.
 
 ${JSON.stringify(registry, null, 2)}`);
 
+  // 4b. Saved template library
+  const templates = loadTemplates();
+  if (templates.length > 0) {
+    sections.push(`## Saved Template Library
+
+You have access to previously saved template patterns. Use \`search_templates\` to find matching templates by keyword.
+When a template matches the user's request, you can reuse its structure — just update the param values and call \`submit_template\`.
+
+### Available templates:
+${templates.map((t) => `- **${t.id}**: ${t.description} (params: ${t.template.params.map((p) => p.name).join(", ")})`).join("\n")}
+
+**Workflow when a saved template exists:**
+1. Search templates with \`search_templates\` to get the full structure
+2. If a match is found, use its source, extraction, transform, and rule as-is
+3. Replace the param values with the user's specific values
+4. Call \`submit_template\` with the updated params
+5. You may skip fetch_url/test_extraction since the template pattern is already verified`);
+  }
+
   // 5. Example specs (few-shot)
   const specFiles = readdirSync(SPECS_DIR).filter((f) => f.endsWith(".json"));
   const examples = specFiles.map((f) => {
@@ -238,6 +262,32 @@ If no data source matches the user's request and no custom URL is provided, try 
 If the market requires interpreting unstructured news, policy announcements, or subjective language to determine the outcome, do NOT submit a spec — explain that this type of market is not suitable for deterministic resolution. See "Unsuitable Markets" above.
 
 If the user's request is fundamentally impossible to resolve with available data, explain why in your response text (do not call submit_spec).`);
+
+  // 9. Chat mode instructions
+  if (options.chatMode) {
+    sections.push(`## Conversational Mode
+
+You are in an interactive conversation with the user. You can ask clarifying questions before generating a spec.
+
+**Guidelines:**
+- If the user's request is ambiguous or missing details (teams, dates, thresholds), ASK before guessing
+- For template patterns (multiple markets), ask for the specific parameter values
+- When you find a matching saved template, tell the user and ask for the parameter values it needs
+- Keep responses concise — ask one focused question at a time
+- When you have enough information, proceed to build and submit the spec
+- Do NOT ask unnecessary questions if the request is already clear enough
+
+**Example conversation flow:**
+User: "EPL match winner template"
+You: "I found a saved EPL match winner template. It needs these parameters:
+- home_team / away_team: team names (e.g. 'Arsenal FC', 'Chelsea FC')
+- matchday: matchday number
+- season: season year (e.g. 2024)
+
+Which matches do you want? Provide pairs like: Arsenal FC vs Chelsea FC md29, Liverpool FC vs Man City md30"
+User: "Arsenal FC vs Chelsea FC md29, Liverpool FC vs Man City md30, season 2025"
+You: [calls submit_template with the values]`);
+  }
 
   return sections.join("\n\n");
 }

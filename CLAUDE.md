@@ -18,6 +18,12 @@ forge test --root contracts      # Run Solidity tests
 
 # Template generation (batch specs from one AI run)
 npx tsx src/cli/generate-spec.ts "AMZN close above {price} Mar 2? Thresholds 200,210,220" --output-dir /tmp/specs --dry-run
+
+# Chat mode (interactive multi-turn conversation with LLM)
+npx tsx src/cli/generate-spec.ts "EPL match winner" --chat --verbose
+
+# Save a successful template for reuse
+npx tsx src/cli/generate-spec.ts "EPL match winners: ..." --save-template epl-match-winner
 ```
 
 No JS test framework (Jest/Vitest) is configured. Solidity tests use Foundry.
@@ -26,15 +32,17 @@ No JS test framework (Jest/Vitest) is configured. Solidity tests use Foundry.
 
 ```
 src/
-  ai/         Agentic spec generation (LLM + tools: fetch_url, search_registry, test_extraction, submit_spec, submit_template)
+  ai/         Agentic spec generation (LLM + tools: fetch_url, search_registry, search_templates, test_extraction, submit_spec, submit_template)
   ai/template.ts  Template expansion: expandTemplate(), expandAndValidate()
+  ai/template-library.ts  Saved template library: loadTemplates(), searchTemplates(), saveTemplate()
   resolver/   Deterministic engine: fetch → extract → transform → evaluate → sign
   registry/   Curated data source descriptors (JSON files in sources/)
   cli/        CLI entry points (all use process.argv, output JSON to stdout, logs to stderr)
   lib/        viem contract helpers
-  types.ts    Core interfaces: ResolutionSpec, TemplateSpec, SignedPayload
+  types.ts    Core interfaces: ResolutionSpec, TemplateSpec, SavedTemplate, SignedPayload
 contracts/    Solidity (VoranOracle) + Foundry tests
 specs/        Example and generated resolution specs
+templates/    Saved template patterns (reusable by LLM via search_templates tool)
 .github/workflows/
   generate-spec.yml   AI spec generation → PR (supports single + batch template)
   verify-spec.yml     Runs resolver on spec PRs → auto-merge on success, comment on failure
@@ -42,9 +50,11 @@ specs/        Example and generated resolution specs
 
 **Resolution flow**: `resolve()` in `src/resolver/index.ts` orchestrates the pipeline. `fetchSource()` dispatches to HTTP fetch or Puppeteer browser. `extractValue()` runs JSONPath or sandboxed JS (`script-sandbox.ts` uses Node VM with restricted globals, 5s timeout). `transformValue()` and `evaluateRule()` are pure functions. `hashAndSign()` produces keccak256 hashes + EIP-191 signature via viem.
 
-**Spec generation flow**: `generateSpec()` in `src/ai/generate.ts` runs a Vercel AI SDK agentic loop. LLM provider is auto-detected from env vars or specified with `--model provider/model`. The agent iterates with tools until it calls `submit_spec` (single) or `submit_template` (batch). Returns a discriminated union: `{ type: "single", spec, ... } | { type: "template", template, specs, ... }`.
+**Spec generation flow**: `generateSpec()` in `src/ai/generate.ts` runs a Vercel AI SDK agentic loop. `generateSpecChat()` adds multi-turn conversation support (`--chat` flag). LLM provider is auto-detected from env vars or specified with `--model provider/model`. The agent iterates with tools until it calls `submit_spec` (single) or `submit_template` (batch). Returns a discriminated union: `{ type: "single", spec, ... } | { type: "template", template, specs, ... }`.
 
-**Template generation**: When a prompt contains threshold lists (e.g., "for thresholds 200, 210, 220"), the agent calls `submit_template` instead of `submit_spec`. `expandTemplate()` in `src/ai/template.ts` mechanically stamps out variant specs — same source/extraction/transform, different `rule.value` and `marketId`. Only the first variant is dry-run tested (pipeline is identical across variants).
+**Template generation**: When a prompt contains threshold lists or multiple fixtures, the agent calls `submit_template`. `expandTemplate()` in `src/ai/template.ts` stamps out variant specs with deep `{param}` substitution across all fields. Multiple params are paired by index (zipped, not cross-product). Only the first variant is dry-run tested.
+
+**Template library**: Saved templates in `templates/` let the LLM reuse verified patterns. `search_templates` tool searches by keyword. The LLM finds a matching template, asks for param values (in chat mode), and submits with updated params — skipping source research. `--save-template <id>` persists a successful template.
 
 **Registry**: JSON descriptors in `src/registry/sources/` define API endpoints, example responses, common JSONPaths, and applicable transforms. The AI agent searches these first before trying custom URLs.
 
@@ -61,4 +71,5 @@ specs/        Example and generated resolution specs
 - Script extraction contract: `function extract(rawResponse: string): string` — must return a string.
 - CLI pattern: args from `process.argv`, JSON result to stdout, diagnostics to stderr, `process.exit(1)` on error.
 - LLM providers: anthropic (ANTHROPIC_API_KEY), openai (OPENAI_API_KEY), google (GOOGLE_GENERATIVE_AI_API_KEY), deepseek (DEEPSEEK_API_KEY), qwen/dashscope (DASHSCOPE_API_KEY), doubao/volcengine (ARK_API_KEY). All use `@ai-sdk/openai-compatible` except Anthropic, OpenAI, and Google which have native SDKs.
-- Template specs use `TemplateSpec` type with `marketIdTemplate` (contains `{param}` placeholder), `rule.paramRef`, and `params` array. Expanded to independent `ResolutionSpec` files.
+- Template specs use `TemplateSpec` type with `marketIdTemplate` and `{param}` placeholders in any string field. `params` arrays are paired by index. `rule.value` can be static number or `"{param}"` string. Expanded to independent `ResolutionSpec` files.
+- Saved templates (`SavedTemplate` in `templates/`) include id, description, keywords for LLM search.

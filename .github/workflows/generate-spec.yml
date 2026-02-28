@@ -51,6 +51,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
         run: |
           ARGS=("${{ inputs.prompt }}" --dry-run --verbose --max-steps "${{ inputs.max_steps }}" --output-dir /tmp/specs)
           if [ -n "${{ inputs.model }}" ]; then

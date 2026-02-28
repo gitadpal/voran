@@ -1,0 +1,38 @@
+{
+  "id": "epl-match-winner",
+  "description": "EPL match winner (home team wins). Uses football-data.org API with score_diff transform. Resolves true if home team score > away team score. Params: home_team, away_team, matchday, season.",
+  "keywords": ["epl", "premier league", "football", "soccer", "match", "winner", "english"],
+  "template": {
+    "marketIdTemplate": "epl-{home_team}-vs-{away_team}-md{matchday}-{season}",
+    "source": {
+      "type": "http",
+      "method": "GET",
+      "url": "https://api.football-data.org/v4/competitions/PL/matches",
+      "query": {
+        "matchday": "{matchday}",
+        "season": "{season}"
+      },
+      "headers": {
+        "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY"
+      }
+    },
+    "extraction": {
+      "type": "jsonpath",
+      "path": "$.matches[?(@.homeTeam.name=='{home_team}' && @.awayTeam.name=='{away_team}')].score.fullTime"
+    },
+    "transform": {
+      "type": "score_diff"
+    },
+    "rule": {
+      "type": "greater_than",
+      "value": 0
+    },
+    "params": [
+      { "name": "home_team", "values": ["Arsenal FC"] },
+      { "name": "away_team", "values": ["Chelsea FC"] },
+      { "name": "matchday", "values": [29] },
+      { "name": "season", "values": [2024] }
+    ]
+  },
+  "createdAt": "2026-02-28T00:00:00Z"
+}

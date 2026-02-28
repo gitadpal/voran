@@ -5,6 +5,7 @@ import { extractValue } from "../resolver/extract.js";
 import { transformValue } from "../resolver/transform.js";
 import { validateSpec, dryRunSpec } from "./validate.js";
 import { expandTemplate } from "./template.js";
+import { searchTemplates } from "./template-library.js";
 import { loadRegistry } from "../registry/index.js";
 import type { ResolutionSpec, TemplateSpec } from "../types.js";
 
@@ -334,6 +335,28 @@ export const submit_template = tool({
         transformedValue: dryResult.transformedValue,
         ruleResult: dryResult.ruleResult,
       },
+    };
+  },
+});
+
+export const search_templates = tool({
+  description:
+    "Search saved template specs by keyword. Returns matching templates with their structure and required parameters. Use these as starting points — fill in the param values from the user's request and submit via submit_template.",
+  inputSchema: z.object({
+    query: z.string().describe("Search keyword (e.g. 'epl', 'stock price', 'crypto')"),
+  }),
+  execute: async ({ query }) => {
+    const matches = searchTemplates(query);
+    if (matches.length === 0) {
+      return { matches: [], message: `No saved templates match "${query}". Build one from scratch.` };
+    }
+    return {
+      matches: matches.map((t) => ({
+        id: t.id,
+        description: t.description,
+        keywords: t.keywords,
+        template: t.template,
+      })),
     };
   },
 });

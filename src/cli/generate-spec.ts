@@ -1,7 +1,8 @@
 import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { createInterface } from "readline";
-import { generateSpec } from "../ai/generate.js";
+import { generateSpec, generateSpecChat } from "../ai/generate.js";
+import { saveTemplate } from "../ai/template-library.js";
 
 const args = process.argv.slice(2);
 
@@ -12,13 +13,15 @@ function usage(): never {
   The agent will research data sources, test extractions, and iterate until the spec works.
 
 Options:
-  --model <p/m>       Provider and model (e.g. "qwen/qwen-plus", "openai/gpt-4o")
-  --dry-run           Fetch real data and verify extraction works after generation
-  --output <path>     Write single spec to file (otherwise prints to stdout)
-  --output-dir <dir>  Write specs to directory (one file per spec, used for templates)
-  --verbose           Print debug info to stderr
-  --interactive       Review spec before accepting
-  --max-steps <n>     Maximum agent steps (default: 15)
+  --model <p/m>              Provider and model (e.g. "qwen/qwen-plus", "openai/gpt-4o")
+  --dry-run                  Fetch real data and verify extraction works after generation
+  --output <path>            Write single spec to file (otherwise prints to stdout)
+  --output-dir <dir>         Write specs to directory (one file per spec, used for templates)
+  --verbose                  Print debug info to stderr
+  --interactive              Review spec before accepting
+  --chat                     Interactive conversation mode — LLM asks clarifying questions
+  --save-template <id>       Save successful template for future reuse
+  --max-steps <n>            Maximum agent steps (default: 15)
 
 Providers (auto-detected from env vars, or use --model):
   anthropic   ANTHROPIC_API_KEY              anthropic/claude-sonnet-4-20250514
@@ -47,7 +50,7 @@ function getArg(name: string): string {
 
 // Extract prompt: first arg that isn't a flag or a flag's value
 function extractPrompt(): string | undefined {
-  const flagsWithValues = new Set(["--model", "--output", "--output-dir", "--max-steps"]);
+  const flagsWithValues = new Set(["--model", "--output", "--output-dir", "--max-steps", "--save-template"]);
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith("--")) {
       if (flagsWithValues.has(args[i])) i++; // skip value
@@ -67,6 +70,8 @@ const output = getArg("output");
 const outputDir = getArg("output-dir");
 const verbose = getFlag("verbose");
 const interactive = getFlag("interactive");
+const chat = getFlag("chat");
+const saveTemplateId = getArg("save-template") || undefined;
 const maxStepsArg = getArg("max-steps");
 const maxSteps = maxStepsArg ? parseInt(maxStepsArg, 10) : undefined;
 
@@ -83,12 +88,35 @@ async function promptUser(question: string): Promise<string> {
 async function main() {
   console.error(`Generating spec for: "${prompt}"`);
 
-  const result = await generateSpec(prompt!, {
-    dryRun,
-    verbose,
-    model,
-    maxSteps,
-  });
+  let result;
+  if (chat) {
+    const rl = createInterface({ input: process.stdin, output: process.stderr });
+    result = await generateSpecChat(prompt!, {
+      dryRun,
+      verbose,
+      model,
+      maxSteps,
+      onAssistantMessage: (text) => {
+        console.error(`\n${text}\n`);
+      },
+      getUserInput: () => {
+        return new Promise<string>((res, rej) => {
+          rl.question("> ", (answer) => {
+            res(answer.trim());
+          });
+          rl.once("close", () => rej(new Error("Input stream closed.")));
+        });
+      },
+    });
+    rl.close();
+  } else {
+    result = await generateSpec(prompt!, {
+      dryRun,
+      verbose,
+      model,
+      maxSteps,
+    });
+  }
 
   if (result.type === "template") {
     console.error(`\nTemplate expanded to ${result.specs.length} spec(s)`);
@@ -128,6 +156,17 @@ async function main() {
     } else {
       // Print all specs as a JSON array to stdout
       console.log(JSON.stringify(result.specs, null, 2));
+    }
+
+    if (saveTemplateId) {
+      saveTemplate({
+        id: saveTemplateId,
+        description: prompt!,
+        keywords: saveTemplateId.split("-"),
+        template: result.template,
+        createdAt: new Date().toISOString(),
+      });
+      console.error(`Template saved as: ${saveTemplateId}`);
     }
   } else {
     const specJson = JSON.stringify(result.spec, null, 2);

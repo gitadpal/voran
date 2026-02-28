@@ -48,6 +48,7 @@ jobs:
         id: resolve
         env:
           RESOLVER_PRIVATE_KEY: ${{ secrets.RESOLVER_PRIVATE_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
         run: |
           set +e
           FAILED=0
