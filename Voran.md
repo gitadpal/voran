@@ -386,28 +386,78 @@ Architecture remains stable due to spec-driven design.
 
 ## 14. Template Spec Generation
 
-For markets that share the same data source but differ only in a numeric threshold (e.g., "Will AMZN close above $200 / $210 / $220?"), Voran supports **template generation**.
+For markets that share the same data pipeline but differ in specific values, Voran supports **template generation**. This covers price thresholds ("Will AMZN close above $200 / $210 / $220?"), sports fixtures ("EPL match winners for Arsenal vs Chelsea md29, Liverpool vs Man City md30"), and any parameterizable pattern.
 
 A `TemplateSpec` defines:
 
-* `marketIdTemplate` — market ID with `{param}` placeholder (e.g., `"amzn-close-above-{price}-mar2-2026"`)
-* Shared `source`, `extraction`, `transform`
-* `rule.paramRef` — which parameter provides `rule.value`
-* `params` — parameter name and list of numeric values
+* `marketIdTemplate` — market ID with `{param}` placeholders (e.g., `"epl-{home_team}-vs-{away_team}-md{matchday}"`)
+* Shared `source`, `extraction`, `transform` — all string fields support `{param}` substitution
+* `rule.value` — static number (e.g., `0` for all win/loss markets) or string with `{param}` placeholder (e.g., `"{price}"`)
+* `params` — array of parameter names with paired values (zipped by index, not cross-product)
 
 The AI agent recognizes template patterns in prompts and calls `submit_template` instead of `submit_spec`. The template is mechanically expanded into independent `ResolutionSpec` files — one AI run, many specs.
+
+### Template Library
+
+Saved templates in `templates/` allow the AI agent to reuse verified patterns. Each `SavedTemplate` has an `id`, `description`, `keywords`, and the `TemplateSpec` structure. The agent searches saved templates via the `search_templates` tool and, when a match is found, only needs the user's specific parameter values.
+
+Templates can be saved via the CLI:
+
+```bash
+npx tsx src/cli/generate-spec.ts "..." --save-template epl-match-winner
+```
 
 ---
 
 ## 15. CI/CD Pipeline
 
+Two GitHub Actions workflows form a verify-then-merge pipeline for spec generation:
+
 ### Generate Spec (`generate-spec.yml`)
 
-Triggered via `workflow_dispatch`. Runs the AI agent to generate spec(s), creates a PR with the result. Supports single specs and template batches. 7-minute timeout on generation.
+Triggered manually via `workflow_dispatch` from the GitHub Actions tab or the `gh` CLI.
+
+**Inputs:**
+
+| Input | Required | Description |
+|-------|----------|-------------|
+| `prompt` | Yes | Natural language market description |
+| `title` | No | Short run title for the Actions UI (defaults to full prompt) |
+| `model` | No | LLM provider/model (e.g. `doubao/doubao-seed-2-0-pro-260215`). Auto-detects if empty. |
+| `max_steps` | No | Maximum agent steps (default: 15) |
+
+**Triggering via CLI:**
+
+```bash
+gh workflow run generate-spec.yml \
+  -f prompt="Will Arsenal win next match against Chelsea?" \
+  -f title="Arsenal vs Chelsea" \
+  -f model="doubao/doubao-seed-2-0-pro-260215"
+```
+
+**What it does:**
+
+1. Runs the AI agent with `--dry-run --verbose --output-dir /tmp/specs`
+2. Agent researches data sources, tests extraction, submits a validated spec (7-minute timeout)
+3. Creates a PR on `spec/{marketId}` branch (single spec) or `spec/batch-{timestamp}` branch (template batch)
+4. Uses `PAT_TOKEN` secret (not `GITHUB_TOKEN`) so the PR triggers the verify workflow
+
+**Required secrets:** `PAT_TOKEN`, at least one LLM API key (`ARK_API_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, etc.), plus data source keys as needed (`FOOTBALL_DATA_API_KEY`).
 
 ### Verify Spec (`verify-spec.yml`)
 
-Triggered on `pull_request` when `specs/*.json` files change. Runs the full resolver (including signing) on each spec. Auto-merges on success; comments requesting human review on failure.
+Triggered automatically on pull requests that modify `specs/*.json` files.
+
+**What it does:**
+
+1. Finds changed spec files in the PR
+2. Runs the full deterministic resolver (`run-resolver.ts`) on each spec
+3. On success: auto-merges the PR (squash) and deletes the branch
+4. On failure: posts a comment with a link to the workflow logs for manual review
+
+**Required secrets:** `RESOLVER_PRIVATE_KEY`, `FOOTBALL_DATA_API_KEY`, and any other data source API keys referenced by specs.
+
+**Why `PAT_TOKEN` is needed:** GitHub prevents workflows triggered by `GITHUB_TOKEN` from triggering other workflows. The generate workflow uses a Personal Access Token (`PAT_TOKEN`) to create PRs, ensuring the verify workflow fires.
 
 This separation ensures:
 
@@ -417,7 +467,19 @@ This separation ensures:
 
 ---
 
-## 16. Key Insight
+## 16. Interactive Chat Mode
+
+The CLI supports a `--chat` flag for interactive, multi-turn conversations with the AI agent:
+
+```bash
+npx tsx src/cli/generate-spec.ts "EPL match winner" --chat --verbose
+```
+
+In chat mode, the agent can ask clarifying questions before generating a spec. This is useful when the prompt is ambiguous or when using saved templates — the agent finds the template, presents the required parameters, and waits for the user to provide values.
+
+---
+
+## 17. Key Insight
 
 Voran is `an AI-generated deterministic oracle` rather than “an AI oracle”.
 

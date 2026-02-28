@@ -115,16 +115,51 @@ npm run generate-spec -- "NYC temperature above 30C" \
   --output specs/my-spec.json
 ```
 
-### Agent tools
+### Template generation
 
-The AI agent has access to four tools:
+When a prompt describes multiple related markets, the agent generates a template instead of individual specs:
+
+```bash
+# Price thresholds — one AI run, 3 specs
+npm run generate-spec -- "AMZN close above {price} Mar 2? Thresholds 200,210,220" --output-dir /tmp/specs
+
+# Sports fixtures — paired params
+npm run generate-spec -- "EPL match winners: Arsenal FC vs Chelsea FC md29, Liverpool FC vs Man City md30, season 2025" --output-dir /tmp/specs
+```
+
+### Interactive chat mode
+
+The `--chat` flag enables multi-turn conversation. The agent asks for missing details before generating:
+
+```bash
+npm run generate-spec -- "EPL match winner" --chat --verbose
+# Agent: "Which teams and matchdays?"
+# You: "Arsenal FC vs Chelsea FC md29, season 2025"
+# Agent: [generates spec]
+```
+
+### Template library
+
+Saved templates let the agent reuse verified patterns without re-researching data sources:
+
+```bash
+# Save a successful template
+npm run generate-spec -- "..." --save-template epl-match-winner
+
+# Next time, the agent finds it automatically via search_templates
+npm run generate-spec -- "EPL match winner Arsenal vs Chelsea md29"
+```
+
+### Agent tools
 
 | Tool | Purpose |
 |------|---------|
 | `search_registry` | Find curated data sources by keyword |
+| `search_templates` | Find saved template patterns by keyword |
 | `fetch_url` | Inspect a URL response (plain HTTP or headless browser) |
 | `test_extraction` | Run extraction + transform against real data |
 | `submit_spec` | Validate and submit the final spec |
+| `submit_template` | Submit a parameterized template for batch expansion |
 
 ### Supported AI providers
 
@@ -137,19 +172,7 @@ Set one API key in `.env` (auto-detected), or specify with `--model provider/mod
 | Google | `GOOGLE_GENERATIVE_AI_API_KEY` | `gemini-2.0-flash` |
 | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
 | Qwen | `DASHSCOPE_API_KEY` | `qwen-plus` |
-
-## Domain-specific generators
-
-```bash
-# EPL match result
-npm run generate-epl-spec -- \
-  --home "Arsenal FC" --away "Chelsea FC" \
-  --matchday 29 --season 2024 --rule home_win
-
-# Forex rate
-npm run generate-forex-spec -- \
-  --base EUR --quote USD --rule "greater_than:1.10"
-```
+| Doubao | `ARK_API_KEY` | `doubao-seed-2-0-pro-260215` |
 
 ## Resolver pipeline
 
@@ -195,17 +218,43 @@ npm run e2e
 ```
 src/
   ai/           Agent-based spec generation (tools, prompt, validation)
+  ai/template-library.ts  Saved template patterns (load, search, save)
   cli/          CLI commands (generate-spec, run-resolver, create/settle-market)
   resolver/     Deterministic resolution engine (fetch, extract, transform, evaluate, sign)
   registry/     Curated data source descriptors
   types.ts      Core TypeScript interfaces
 contracts/      Solidity (VoranOracle + Foundry tests)
 specs/          Example and generated resolution specs
+templates/      Saved template patterns for reuse
 ```
 
-## CI
+## CI/CD
 
-Two GitHub Actions workflows:
+Two GitHub Actions workflows form a verify-then-merge pipeline:
 
-- **Resolve** (`workflow_dispatch`) — Run resolver on any base64-encoded spec
-- **E2E Browser** (`workflow_dispatch`) — Verify browser-rendered spec resolution with puppeteer
+### Generate Spec (`generate-spec.yml`)
+
+Triggered manually via `workflow_dispatch`. Runs the AI agent to produce spec(s) and creates a PR.
+
+```bash
+# Via CLI
+gh workflow run generate-spec.yml \
+  -f prompt="Will Arsenal win next match against Chelsea?" \
+  -f title="Arsenal vs Chelsea" \
+  -f model="doubao/doubao-seed-2-0-pro-260215"
+```
+
+| Input | Required | Description |
+|-------|----------|-------------|
+| `prompt` | Yes | Natural language market description |
+| `title` | No | Short run title for Actions UI |
+| `model` | No | LLM provider/model (auto-detects if empty) |
+| `max_steps` | No | Max agent steps (default: 15) |
+
+**Required secrets:** `PAT_TOKEN` (for PR creation), at least one LLM API key, data source keys as needed.
+
+### Verify Spec (`verify-spec.yml`)
+
+Triggered automatically on PRs that modify `specs/*.json`. Runs the deterministic resolver on each changed spec. Auto-merges on success; comments on failure for manual review.
+
+**Required secrets:** `RESOLVER_PRIVATE_KEY`, data source API keys (`FOOTBALL_DATA_API_KEY`, etc.).
