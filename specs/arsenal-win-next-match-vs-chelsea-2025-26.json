@@ -1,0 +1,26 @@
+{
+  "marketId": "arsenal-win-next-match-vs-chelsea-2025-26",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.football-data.org/v4/competitions/PL/matches",
+    "query": {
+      "season": 2025
+    },
+    "headers": {
+      "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY"
+    }
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  const data = JSON.parse(rawResponse);\n  const matches = data.matches || [];\n  const rivalryMatches = matches.filter(m => \n    (m.homeTeam.name === 'Arsenal FC' && m.awayTeam.name === 'Chelsea FC') ||\n    (m.homeTeam.name === 'Chelsea FC' && m.awayTeam.name === 'Arsenal FC')\n  );\n  if (rivalryMatches.length === 0) throw new Error('No matches found between Arsenal and Chelsea this season');\n  const now = Date.now();\n  let targetMatch = null;\n  for (const match of rivalryMatches) {\n    const matchDate = new Date(match.utcDate).getTime();\n    if (matchDate > now || match.status === 'FINISHED') {\n      targetMatch = match;\n      break;\n    }\n  }\n  if (!targetMatch) throw new Error('No upcoming or finished match found');\n  if (targetMatch.status !== 'FINISHED') throw new Error('Match has not been played yet');\n  const homeScore = targetMatch.score.fullTime.home;\n  const awayScore = targetMatch.score.fullTime.away;\n  const arsenalWins = targetMatch.homeTeam.name === 'Arsenal FC' ? (homeScore > awayScore) : (awayScore > homeScore);\n  return arsenalWins ? '1' : '0';\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0.5
+  }
+}
