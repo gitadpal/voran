@@ -1,0 +1,30 @@
+{
+  "marketId": "bundesliga-fc-bayern-munchen-vs-fc-st-pauli-1910-2025-26-bayern-win",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.football-data.org/v4/competitions/BL1/matches",
+    "query": {
+      "season": 2025
+    },
+    "headers": {
+      "X-Auth-Token": "$env:FOOTBALL_DATA_API_KEY"
+    }
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  const data = JSON.parse(rawResponse);\n  const matches = data.matches || [];\n  const targetMatch = matches.find(m => \n    (m.homeTeam.name === 'FC Bayern München' && m.awayTeam.name === 'FC St. Pauli 1910') ||\n    (m.homeTeam.name === 'FC St. Pauli 1910' && m.awayTeam.name === 'FC Bayern München')\n  );\n  if (!targetMatch) throw new Error('Match between Bayern Munich and St. Pauli not found in 2025/26 Bundesliga season');\n  if (targetMatch.status !== 'FINISHED') throw new Error('Match has not been completed yet');\n  const homeScore = targetMatch.score.fullTime.home;\n  const awayScore = targetMatch.score.fullTime.away;\n  const bayernIsHome = targetMatch.homeTeam.name === 'FC Bayern München';\n  const bayernWins = bayernIsHome ? (homeScore > awayScore) : (awayScore > homeScore);\n  return bayernWins ? '1' : '0';\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0.5
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-05-17T00:00:00Z"
+  }
+}
