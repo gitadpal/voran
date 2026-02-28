@@ -1,0 +1,19 @@
+{
+  "marketId": "btc-exceeds-100k",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.data.amount"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 100000
+  }
+}
