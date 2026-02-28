@@ -1,0 +1,30 @@
+{
+  "marketId": "dod-anthropic-claude-ban-by-mar31-2026",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://www.federalregister.gov/api/v1/documents.json",
+    "query": {
+      "conditions[agencies][]": "defense-department",
+      "conditions[publication_date][lte]": "2026-03-31",
+      "conditions[term]": "ai",
+      "per_page": 1000
+    }
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  const data = JSON.parse(rawResponse);\n  const results = data.results || [];\n  \n  // Keywords for the company/AI model\n  const companyKeywords = ['anthropic', 'claude'];\n  \n  // Ban/termination keywords\n  const banKeywords = [\n    'ban', 'prohibit', 'terminate', 'end', 'suspend', 'restrict', \n    'forbid', 'discontinue', 'cease', 'halt', 'stop', 'prohibition',\n    'restriction', 'suspension', 'termination', 'not allowed',\n    'not permitted', 'not authorized', 'no longer', 'not use',\n    'cannot use', 'may not use', 'shall not use', 'must not use',\n    'prohibited from', 'banned from', 'restricted from'\n  ];\n  \n  // Relationship ending phrases\n  const relationshipPhrases = [\n    'end relationship', 'terminate contract', 'end contract',\n    'cancel contract', 'terminate agreement', 'end agreement',\n    'discontinue use', 'cease use', 'stop using', 'halt use',\n    'phase out', 'remove', 'eliminate', 'withdraw', 'revoke'\n  ];\n  \n  // Check each AI-related DoD document\n  for (const doc of results) {\n    const title = (doc.title || '').toLowerCase();\n    const abstract = (doc.abstract || '').toLowerCase();\n    const excerpts = (doc.excerpts || '').toLowerCase();\n    const fullText = title + ' ' + abstract + ' ' + excerpts;\n    \n    // Check if document mentions Anthropic or Claude\n    const mentionsCompany = companyKeywords.some(keyword => \n      fullText.includes(keyword)\n    );\n    \n    if (mentionsCompany) {\n      // Check for ban/termination language\n      const mentionsBan = banKeywords.some(keyword => \n        fullText.includes(keyword)\n      );\n      \n      const mentionsRelationshipEnd = relationshipPhrases.some(phrase => \n        fullText.includes(phrase)\n      );\n      \n      if (mentionsBan || mentionsRelationshipEnd) {\n        // Found an AI-related document mentioning Anthropic/Claude with ban language\n        return '1';\n      }\n    }\n  }\n  \n  // No ban announcement found\n  return '0';\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 0.5
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-04-01T03:59:00Z"
+  }
+}
