@@ -59,7 +59,7 @@ jobs:
 
       - name: Create PR with spec
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           MARKET_ID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/spec.json','utf8')).marketId)")
           SPEC_FILE="specs/${MARKET_ID}.json"
