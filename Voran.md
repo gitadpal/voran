@@ -212,14 +212,14 @@ Supported rule types:
 
 Header values support `$env:VAR_NAME` syntax to reference environment variables at runtime, keeping API keys out of committed spec files.
 
+Script extraction (`extraction.type: "script"`) is supported for HTML pages and complex JSON that JSONPath cannot handle. Scripts define a pure `function extract(rawResponse: string): string` executed in a sandboxed VM with restricted globals and a 5-second timeout. Scripts must be deterministic — no network calls, no side effects, no randomness.
+
 Constraints:
 
-* No natural language
-* No dynamic scripting
-* No embedded code
+* No natural language in resolution logic
 * No randomness
-
-Spec must describe a pure computation.
+* Spec must describe a pure computation
+* Script extraction must be deterministic and sandboxed
 
 ---
 
@@ -384,7 +384,40 @@ Architecture remains stable due to spec-driven design.
 
 ---
 
-## 14. Key Insight
+## 14. Template Spec Generation
+
+For markets that share the same data source but differ only in a numeric threshold (e.g., "Will AMZN close above $200 / $210 / $220?"), Voran supports **template generation**.
+
+A `TemplateSpec` defines:
+
+* `marketIdTemplate` — market ID with `{param}` placeholder (e.g., `"amzn-close-above-{price}-mar2-2026"`)
+* Shared `source`, `extraction`, `transform`
+* `rule.paramRef` — which parameter provides `rule.value`
+* `params` — parameter name and list of numeric values
+
+The AI agent recognizes template patterns in prompts and calls `submit_template` instead of `submit_spec`. The template is mechanically expanded into independent `ResolutionSpec` files — one AI run, many specs.
+
+---
+
+## 15. CI/CD Pipeline
+
+### Generate Spec (`generate-spec.yml`)
+
+Triggered via `workflow_dispatch`. Runs the AI agent to generate spec(s), creates a PR with the result. Supports single specs and template batches. 7-minute timeout on generation.
+
+### Verify Spec (`verify-spec.yml`)
+
+Triggered on `pull_request` when `specs/*.json` files change. Runs the full resolver (including signing) on each spec. Auto-merges on success; comments requesting human review on failure.
+
+This separation ensures:
+
+* Verification is independent of generation
+* Manually-submitted spec PRs are also verified
+* Failed specs remain as open PRs for inspection
+
+---
+
+## 16. Key Insight
 
 Voran is `an AI-generated deterministic oracle` rather than “an AI oracle”.
 
