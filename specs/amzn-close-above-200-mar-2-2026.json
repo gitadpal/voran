@@ -1,0 +1,29 @@
+{
+  "marketId": "amzn-close-above-200-mar-2-2026",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMZN",
+    "query": {
+      "period1": 1772064000,
+      "period2": 1772323200,
+      "interval": "1d"
+    }
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  const data = JSON.parse(rawResponse);\n  if (!data.chart || !data.chart.result || data.chart.result.length === 0) {\n    throw new Error('No chart data available');\n  }\n  const result = data.chart.result[0];\n  const timestamps = result.timestamp || [];\n  const quotes = result.indicators?.quote || [];\n  const adjclose = result.indicators?.adjclose || [];\n  if (timestamps.length === 0 || quotes.length === 0) {\n    throw new Error('No historical price data available');\n  }\n  const targetDate = 1772146800;\n  let closestIndex = -1;\n  let minDiff = Infinity;\n  for (let i = 0; i < timestamps.length; i++) {\n    const diff = Math.abs(timestamps[i] - targetDate);\n    if (diff < minDiff) {\n      minDiff = diff;\n      closestIndex = i;\n    }\n  }\n  if (closestIndex === -1) {\n    throw new Error('Could not find price data for target date');\n  }\n  let closingPrice;\n  if (adjclose.length > 0 && adjclose[0].adjclose && adjclose[0].adjclose[closestIndex] !== undefined) {\n    closingPrice = adjclose[0].adjclose[closestIndex];\n  } else if (quotes[0].close && quotes[0].close[closestIndex] !== undefined) {\n    closingPrice = quotes[0].close[closestIndex];\n  } else {\n    throw new Error('Could not extract closing price for target date');\n  }\n  return closingPrice.toString();\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 200
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-03-03T00:00:00Z"
+  }
+}
