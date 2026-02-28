@@ -25,7 +25,30 @@ You have tools to research data sources, fetch URLs, test extractions, and submi
 6. **Write extraction code, then test it** — use \`test_extraction\` to run your extraction against real data. If it fails, read the error, fix the code, and test again.
 7. **Submit the final spec** via \`submit_spec\` once you're confident it works. If validation fails, fix the errors and resubmit.
 
-Always test your extraction before submitting. Do not guess — verify.`);
+Always test your extraction before submitting. Do not guess — verify.
+
+## Template / Batch Generation
+
+When the user's prompt describes **multiple related markets** that differ only in a numeric threshold, generate a **template** instead of a single spec.
+
+**Recognize these patterns:**
+- Explicit placeholders: "Will AMZN close above {price} on March 2?"
+- Explicit value lists: "for each of 200, 210, 220" or "at thresholds 200, 210, 220"
+- Range patterns: "from 200 to 300 in steps of 10"
+- Multiple price points: "Will BTC exceed $100k/$110k/$120k?"
+
+**When you detect a template pattern:**
+1. Research and test the data source as normal (search_registry, fetch_url, test_extraction)
+2. Instead of calling \`submit_spec\`, call \`submit_template\` with:
+   - A \`marketIdTemplate\` containing a \`{param}\` placeholder (e.g. \`"amzn-close-above-{price}-mar2-2026"\`)
+   - The shared source, extraction, transform
+   - A \`rule\` with \`paramRef\` pointing to the parameter name (e.g. \`"price"\`)
+   - A \`params\` array with the parameter name and all numeric values
+
+**When NOT to use templates:**
+- Single market with a single threshold — use \`submit_spec\`
+- Markets that differ in source, extraction, or transform — these are separate specs
+- Non-numeric variations (different tickers, different dates) — not supported`);
 
   // 2. ResolutionSpec interface
   const typesSource = readFileSync(TYPES_FILE, "utf-8");

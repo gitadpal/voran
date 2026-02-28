@@ -38,6 +38,24 @@ export interface ResolverPayload {
   executedAt: number;
 }
 
+export interface TemplateParam {
+  name: string;
+  values: number[];
+}
+
+export interface TemplateSpec {
+  marketIdTemplate: string;
+  source: ResolutionSpec["source"];
+  extraction: ResolutionSpec["extraction"];
+  transform: ResolutionSpec["transform"];
+  rule: {
+    type: ResolutionSpec["rule"]["type"];
+    paramRef: string;
+  };
+  timestampRule?: ResolutionSpec["timestampRule"];
+  params: TemplateParam[];
+}
+
 export interface SignedPayload extends ResolverPayload {
   signature: `0x${string}`;
 }

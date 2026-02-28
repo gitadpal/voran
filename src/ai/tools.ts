@@ -3,9 +3,10 @@ import { z } from "zod";
 import { fetchSource, fetchBrowser, resolveHeaders } from "../resolver/fetch.js";
 import { extractValue } from "../resolver/extract.js";
 import { transformValue } from "../resolver/transform.js";
-import { validateSpec } from "./validate.js";
+import { validateSpec, dryRunSpec } from "./validate.js";
+import { expandTemplate } from "./template.js";
 import { loadRegistry } from "../registry/index.js";
-import type { ResolutionSpec } from "../types.js";
+import type { ResolutionSpec, TemplateSpec } from "../types.js";
 
 const httpSourceSchema = z.object({
   type: z.literal("http"),
@@ -217,6 +218,108 @@ export const submit_spec = tool({
       success: true as const,
       spec,
       warnings: validation.warnings,
+    };
+  },
+});
+
+export const submit_template = tool({
+  description:
+    "Submit a template for generating multiple variant specs that differ only in a numeric threshold. Use this when the user's prompt describes a family of similar markets (e.g., 'Will AMZN close above 200/210/220?'). The template defines the shared source/extraction/transform once, and specifies the parameter values to expand into individual specs. A dry-run is performed on the first variant to verify the pipeline works.",
+  inputSchema: z.object({
+    marketIdTemplate: z
+      .string()
+      .describe("Market ID with {param} placeholder, e.g. 'amzn-above-{price}-mar2-2026'"),
+    source: sourceSchema,
+    extraction: extractionSchema,
+    transform: transformSchema,
+    rule: z.object({
+      type: z.enum(["greater_than", "less_than", "equals"]),
+      paramRef: z.string().describe("Name of the parameter that provides rule.value"),
+    }),
+    timestampRule: z
+      .object({
+        type: z.string(),
+        utc: z.string(),
+      })
+      .optional(),
+    params: z
+      .array(
+        z.object({
+          name: z.string(),
+          values: z.array(z.number()).min(1),
+        })
+      )
+      .length(1)
+      .describe("Single parameter with its values"),
+  }),
+  execute: async (input) => {
+    const { params, rule } = input;
+    const param = params[0];
+
+    // Validate paramRef matches param name
+    if (rule.paramRef !== param.name) {
+      return {
+        success: false as const,
+        errors: [
+          `rule.paramRef "${rule.paramRef}" does not match param name "${param.name}"`,
+        ],
+      };
+    }
+
+    // Validate marketIdTemplate contains the placeholder
+    if (!input.marketIdTemplate.includes(`{${param.name}}`)) {
+      return {
+        success: false as const,
+        errors: [
+          `marketIdTemplate must contain {${param.name}} placeholder`,
+        ],
+      };
+    }
+
+    const template: TemplateSpec = {
+      marketIdTemplate: input.marketIdTemplate,
+      source: input.source,
+      extraction: input.extraction,
+      transform: input.transform,
+      rule: input.rule,
+      timestampRule: input.timestampRule,
+      params: input.params,
+    };
+
+    // Expand and validate all variants
+    const specs = expandTemplate(template);
+    const errors: string[] = [];
+    for (const spec of specs) {
+      const v = validateSpec(spec);
+      if (!v.valid) {
+        errors.push(`${spec.marketId}: ${v.errors.join(", ")}`);
+      }
+    }
+    if (errors.length > 0) {
+      return { success: false as const, errors };
+    }
+
+    // Dry-run the first variant to verify the pipeline
+    const dryResult = await dryRunSpec(specs[0]);
+    if (!dryResult.success) {
+      return {
+        success: false as const,
+        errors: [
+          `Dry-run failed on ${specs[0].marketId}: ${dryResult.error}`,
+        ],
+      };
+    }
+
+    return {
+      success: true as const,
+      template,
+      expandedCount: specs.length,
+      dryRunSample: {
+        marketId: specs[0].marketId,
+        extractedValue: dryResult.extractedValue,
+        transformedValue: dryResult.transformedValue,
+        ruleResult: dryResult.ruleResult,
+      },
     };
   },
 });

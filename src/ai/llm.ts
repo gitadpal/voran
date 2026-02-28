@@ -12,6 +12,7 @@ import type { LanguageModel } from "ai";
  *   GOOGLE_GENERATIVE_AI_API_KEY → google/gemini-2.0-flash
  *   DEEPSEEK_API_KEY    → deepseek/deepseek-chat
  *   DASHSCOPE_API_KEY   → qwen/qwen-plus (Alibaba Cloud DashScope)
+ *   ARK_API_KEY         → doubao/doubao-seed-2-0-pro-260215 (Volcengine Ark)
  */
 
 interface ProviderConfig {
@@ -69,6 +70,19 @@ const PROVIDERS: Record<string, ProviderConfig> = {
         apiKey: process.env.DASHSCOPE_API_KEY,
       });
       return qwen.chatModel(modelId);
+    },
+  },
+  doubao: {
+    envVar: "ARK_API_KEY",
+    defaultModel: "doubao-seed-2-0-pro-260215",
+    createModel: async (modelId) => {
+      const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
+      const doubao = createOpenAICompatible({
+        name: "doubao",
+        baseURL: "https://ark.cn-beijing.volces.com/api/v3",
+        apiKey: process.env.ARK_API_KEY,
+      });
+      return doubao.chatModel(modelId);
     },
   },
 };
