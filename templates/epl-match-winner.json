@@ -1,6 +1,6 @@
 {
   "id": "epl-match-winner",
-  "description": "EPL match winner (home team wins). Uses football-data.org API with score_diff transform. Resolves true if home team score > away team score. Params: home_team, away_team, matchday, season.",
+  "description": "EPL match winner (home team wins). Uses football-data.org API with score_diff transform. Resolves true if home team score > away team score. Params: home_team, away_team, matchday, season. NOTE: season follows football-data.org convention — use the year the season started (e.g. 2025 for 2025/26 season). Use the API to look up the correct matchday for a given date if not provided.",
   "keywords": ["epl", "premier league", "football", "soccer", "match", "winner", "english"],
   "template": {
     "marketIdTemplate": "epl-{home_team}-vs-{away_team}-md{matchday}-{season}",
@@ -31,7 +31,7 @@
       { "name": "home_team", "values": ["Arsenal FC"] },
       { "name": "away_team", "values": ["Chelsea FC"] },
       { "name": "matchday", "values": [29] },
-      { "name": "season", "values": [2024] }
+      { "name": "season", "values": [2025] }
     ]
   },
   "createdAt": "2026-02-28T00:00:00Z"

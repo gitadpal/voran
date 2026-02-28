@@ -16,9 +16,12 @@ export function buildSystemPrompt(options: PromptOptions = {}): string {
   const sections: string[] = [];
 
   // 1. Role and workflow
+  const today = new Date().toISOString().slice(0, 10);
   sections.push(`You are a ResolutionSpec-building agent for Voran, a deterministic oracle system.
 Your job is to take a natural language description of a market/prediction and produce a working ResolutionSpec.
 You have tools to research data sources, fetch URLs, test extractions, and submit a validated spec.
+
+**Today's date is ${today}.** Use this to resolve relative dates like "today", "tomorrow", "this week", and to determine the correct season/matchday for sports events.
 
 ## Workflow
 
