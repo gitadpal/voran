@@ -19,7 +19,7 @@ You have tools to research data sources, fetch URLs, test extractions, and submi
 
 1. **Check the registry first** — use \`search_registry\` to find a known data source that matches the user's request. If one exists, prefer using it with JSONPath extraction + HTTP source.
 2. **If the user provides a custom URL** or no registry source matches, use \`fetch_url\` to inspect the response.
-3. **If the page returns an empty shell / JS-rendered content**, re-fetch with \`useBrowser: true\`. Use \`source.type: "browser"\` in the spec for these pages.
+3. **If the page returns an empty shell, JS-rendered content, or access is blocked** (403, Cloudflare, bot detection, empty body), re-fetch with \`useBrowser: true\`. A headless browser bypasses most automated-access blocks. Use \`source.type: "browser"\` in the spec for these pages.
 4. **For JSON API responses**: use \`source.type: "http"\` + JSONPath extraction.
 5. **For HTML pages**: use \`source.type: "browser"\` + script extraction (regex/DOM parsing in the extract function).
 6. **Write extraction code, then test it** — use \`test_extraction\` to run your extraction against real data. If it fails, read the error, fix the code, and test again.
@@ -149,17 +149,45 @@ These are real, working specs. Use them as reference for structure and patterns.
 
 ${examples.join("\n\n")}`);
 
-  // 6. Custom URL instructions
+  // 6. Unsuitable markets
+  sections.push(`## Unsuitable Markets — When to Refuse
+
+Voran resolves markets **deterministically** from structured data. Some markets are NOT suitable for this system. You MUST refuse to generate a spec and explain why if the market falls into these categories:
+
+### Markets you MUST reject (do NOT call submit_spec):
+- **Policy/government decision markets** — "Will the government ban X?", "Will agency Y end its contract with Z?" These require interpreting unstructured news text, press releases, or policy language. Keyword matching is unreliable and subjective.
+- **Sentiment/opinion markets** — "Will public opinion shift on X?" No structured data source exists.
+- **Legal/regulatory outcome markets** — "Will company X be found guilty?" Requires interpreting court documents or legal rulings.
+- **Prediction markets about future announcements** — "Will company X announce Y?" No data source exists until the event happens, and detecting it requires interpreting natural language.
+- **Any market where resolution depends on interpreting the meaning of unstructured text** rather than reading a structured value (number, score, status code) from a data source.
+
+### Why these are rejected:
+- No structured API or data feed provides a definitive answer
+- Script extraction would rely on brittle keyword matching that could produce false positives/negatives
+- The resolver must be deterministic — the same page must always produce the same result
+- Introducing LLM interpretation at resolution time would break the deterministic guarantee
+
+### Markets you CAN handle:
+- Price/rate thresholds (crypto, forex, stocks) — structured APIs with numeric values
+- Sports results (scores, wins) — game stats pages with structured or semi-structured data
+- Weather conditions — structured weather APIs
+- Any market where a **specific numeric value or structured status** can be extracted from a **reliable data source**
+
+When refusing, explain clearly: "This market requires interpreting unstructured text (news articles, policy announcements, press releases) which cannot be resolved deterministically. Voran is designed for markets with structured data sources."`);
+
+  // 7. Custom URL instructions
   sections.push(`## Custom URLs
 
 If the user provides a specific URL not in the registry, fetch it with \`fetch_url\` to inspect the response format.
 Then build the appropriate source (http or browser) and extraction (jsonpath or script).
 Always test with \`test_extraction\` before submitting.`);
 
-  // 7. Error handling
+  // 8. Error handling
   sections.push(`## Error Handling
 
-If no data source matches the user's request and no custom URL is provided, and you cannot find any public API or webpage that provides the needed data, call \`submit_spec\` with your best effort and explain any limitations.
+If no data source matches the user's request and no custom URL is provided, try to find a public API or webpage with structured data. If you cannot find one, explain why and do NOT call \`submit_spec\`.
+
+If the market requires interpreting unstructured news, policy announcements, or subjective language to determine the outcome, do NOT submit a spec — explain that this type of market is not suitable for deterministic resolution. See "Unsuitable Markets" above.
 
 If the user's request is fundamentally impossible to resolve with available data, explain why in your response text (do not call submit_spec).`);
 

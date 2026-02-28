@@ -1,0 +1,91 @@
+name: Verify Spec
+
+on:
+  pull_request:
+    paths:
+      - "specs/*.json"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx puppeteer browsers install chrome
+
+      - name: Find changed spec files
+        id: specs
+        run: |
+          FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | grep '^specs/.*\.json$' || true)
+          if [ -z "$FILES" ]; then
+            echo "No spec files changed"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "files<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$FILES" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run resolver on specs
+        if: steps.specs.outputs.found == 'true'
+        id: resolve
+        env:
+          RESOLVER_PRIVATE_KEY: ${{ secrets.RESOLVER_PRIVATE_KEY }}
+        run: |
+          set +e
+          FAILED=0
+          while IFS= read -r SPEC; do
+            echo "::group::Resolving $SPEC"
+            npx tsx src/cli/run-resolver.ts "$SPEC"
+            EXIT=$?
+            echo "::endgroup::"
+            if [ $EXIT -ne 0 ]; then
+              echo "FAILED: $SPEC (exit $EXIT)"
+              FAILED=1
+              echo "failed_spec=$SPEC" >> "$GITHUB_OUTPUT"
+            fi
+          done <<< "${{ steps.specs.outputs.files }}"
+
+          if [ $FAILED -ne 0 ]; then
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "result=success" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-merge PR
+        if: steps.resolve.outputs.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
+
+      - name: Comment on failure
+        if: failure() && steps.specs.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "$(cat <<'EOF'
+          ## Spec Verification Failed
+
+          The resolver failed to execute one or more spec files in this PR. Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+          This PR requires manual review and will not be auto-merged.
+          EOF
+          )"
