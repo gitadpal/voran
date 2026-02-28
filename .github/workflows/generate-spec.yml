@@ -1,6 +1,6 @@
 name: Generate Spec
 
-run-name: "Generate: ${{ inputs.prompt }}"
+run-name: "Generate: ${{ inputs.title || inputs.prompt }}"
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
       prompt:
         description: "Natural language market description (e.g. 'Will BTC exceed $120k by March 2026?')"
         required: true
+        type: string
+      title:
+        description: "Short run title (e.g. 'BTC > $120k'). Defaults to full prompt if empty."
+        required: false
         type: string
       model:
         description: "LLM provider/model (e.g. openai/gpt-4o, anthropic/claude-sonnet-4-20250514). Leave empty to auto-detect."
