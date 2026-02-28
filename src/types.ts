@@ -40,7 +40,7 @@ export interface ResolverPayload {
 
 export interface TemplateParam {
   name: string;
-  values: number[];
+  values: (string | number)[];
 }
 
 export interface TemplateSpec {
@@ -50,9 +50,12 @@ export interface TemplateSpec {
   transform: ResolutionSpec["transform"];
   rule: {
     type: ResolutionSpec["rule"]["type"];
-    paramRef: string;
+    value: number | string;
   };
-  timestampRule?: ResolutionSpec["timestampRule"];
+  timestampRule?: {
+    type: string;
+    utc: string;
+  };
   params: TemplateParam[];
 }
 

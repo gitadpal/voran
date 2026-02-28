@@ -224,17 +224,17 @@ export const submit_spec = tool({
 
 export const submit_template = tool({
   description:
-    "Submit a template for generating multiple variant specs that differ only in a numeric threshold. Use this when the user's prompt describes a family of similar markets (e.g., 'Will AMZN close above 200/210/220?'). The template defines the shared source/extraction/transform once, and specifies the parameter values to expand into individual specs. A dry-run is performed on the first variant to verify the pipeline works.",
+    "Submit a template for generating multiple variant specs. Use this when the user's prompt describes a family of similar markets. Params are combined as paired rows (zipped by index, not cross-product). Placeholders like {param_name} can appear anywhere: marketIdTemplate, source.query values, source.url, extraction.path, extraction.code, rule.value, timestampRule.utc. All param arrays must have the same length. A dry-run is performed on the first variant to verify the pipeline works.",
   inputSchema: z.object({
     marketIdTemplate: z
       .string()
-      .describe("Market ID with {param} placeholder, e.g. 'amzn-above-{price}-mar2-2026'"),
+      .describe("Market ID with {param} placeholders, e.g. 'epl-{home_team}-vs-{away_team}-md{matchday}'"),
     source: sourceSchema,
     extraction: extractionSchema,
     transform: transformSchema,
     rule: z.object({
       type: z.enum(["greater_than", "less_than", "equals"]),
-      paramRef: z.string().describe("Name of the parameter that provides rule.value"),
+      value: z.union([z.number(), z.string()]).describe("Static number (e.g. 0) or string with {param} placeholder (e.g. '{price}')"),
     }),
     timestampRule: z
       .object({
@@ -246,32 +246,37 @@ export const submit_template = tool({
       .array(
         z.object({
           name: z.string(),
-          values: z.array(z.number()).min(1),
+          values: z.array(z.union([z.string(), z.number()])).min(1),
         })
       )
-      .length(1)
-      .describe("Single parameter with its values"),
+      .min(1)
+      .describe("Parameters with paired values (all arrays must be same length)"),
   }),
   execute: async (input) => {
-    const { params, rule } = input;
-    const param = params[0];
+    const { params } = input;
 
-    // Validate paramRef matches param name
-    if (rule.paramRef !== param.name) {
-      return {
-        success: false as const,
-        errors: [
-          `rule.paramRef "${rule.paramRef}" does not match param name "${param.name}"`,
-        ],
-      };
+    // Validate all params have same length
+    const count = params[0].values.length;
+    for (const param of params) {
+      if (param.values.length !== count) {
+        return {
+          success: false as const,
+          errors: [
+            `All params must have the same number of values. "${param.name}" has ${param.values.length}, expected ${count}.`,
+          ],
+        };
+      }
     }
 
-    // Validate marketIdTemplate contains the placeholder
-    if (!input.marketIdTemplate.includes(`{${param.name}}`)) {
+    // Validate marketIdTemplate contains at least one placeholder
+    const hasPlaceholder = params.some((p) =>
+      input.marketIdTemplate.includes(`{${p.name}}`)
+    );
+    if (!hasPlaceholder) {
       return {
         success: false as const,
         errors: [
-          `marketIdTemplate must contain {${param.name}} placeholder`,
+          `marketIdTemplate must contain at least one {param} placeholder. Available: ${params.map((p) => `{${p.name}}`).join(", ")}`,
         ],
       };
     }
@@ -287,7 +292,16 @@ export const submit_template = tool({
     };
 
     // Expand and validate all variants
-    const specs = expandTemplate(template);
+    let specs: ResolutionSpec[];
+    try {
+      specs = expandTemplate(template);
+    } catch (e) {
+      return {
+        success: false as const,
+        errors: [(e as Error).message],
+      };
+    }
+
     const errors: string[] = [];
     for (const spec of specs) {
       const v = validateSpec(spec);

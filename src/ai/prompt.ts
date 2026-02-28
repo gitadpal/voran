@@ -29,26 +29,51 @@ Always test your extraction before submitting. Do not guess — verify.
 
 ## Template / Batch Generation
 
-When the user's prompt describes **multiple related markets** that differ only in a numeric threshold, generate a **template** instead of a single spec.
+When the user's prompt describes **multiple related markets** that share the same data pipeline but differ in specific values, generate a **template** instead of individual specs.
 
 **Recognize these patterns:**
-- Explicit placeholders: "Will AMZN close above {price} on March 2?"
-- Explicit value lists: "for each of 200, 210, 220" or "at thresholds 200, 210, 220"
-- Range patterns: "from 200 to 300 in steps of 10"
-- Multiple price points: "Will BTC exceed $100k/$110k/$120k?"
+- Price thresholds: "Will AMZN close above 200/210/220?" or "for thresholds 200, 210, 220"
+- Sports fixtures: "EPL match winners for Arsenal vs Chelsea md29, Liverpool vs Man City md30"
+- Multiple events: "Will BTC/ETH/SOL exceed $X by March?"
+
+**How templates work:**
+- \`{param}\` placeholders can appear **anywhere**: marketIdTemplate, source.url, source.query values, extraction.path, extraction.code, rule.value, timestampRule.utc
+- Multiple params are combined as **paired rows** (zipped by index, NOT cross-product). All param arrays must have the same length.
+- rule.value can be a static number (e.g. \`0\` for all win/loss markets) or a string with \`{param}\` placeholder (e.g. \`"{price}"\`)
 
 **When you detect a template pattern:**
 1. Research and test the data source as normal (search_registry, fetch_url, test_extraction)
-2. Instead of calling \`submit_spec\`, call \`submit_template\` with:
-   - A \`marketIdTemplate\` containing a \`{param}\` placeholder (e.g. \`"amzn-close-above-{price}-mar2-2026"\`)
-   - The shared source, extraction, transform
-   - A \`rule\` with \`paramRef\` pointing to the parameter name (e.g. \`"price"\`)
-   - A \`params\` array with the parameter name and all numeric values
+2. Call \`submit_template\` with:
+   - A \`marketIdTemplate\` containing \`{param}\` placeholders
+   - Source, extraction, transform with \`{param}\` placeholders in string fields where values vary
+   - A \`rule\` with static value or \`"{param}"\` string for parameterized thresholds
+   - A \`params\` array listing each parameter name and its paired values
+
+**Example — price thresholds (single param):**
+\`\`\`
+marketIdTemplate: "amzn-close-above-{price}-mar2-2026"
+rule: { type: "greater_than", value: "{price}" }
+params: [{ name: "price", values: [200, 210, 220] }]
+→ 3 specs with rule.value = 200, 210, 220
+\`\`\`
+
+**Example — sports fixtures (multi-param, paired rows):**
+\`\`\`
+marketIdTemplate: "epl-{home_team}-vs-{away_team}-md{matchday}"
+source.query: { matchday: "{matchday}", season: 2025 }
+extraction.path: "$.matches[?(@.homeTeam.name=='{home_team}' && @.awayTeam.name=='{away_team}')].score.fullTime"
+rule: { type: "greater_than", value: 0 }  // static — same for all matches
+params: [
+  { name: "home_team", values: ["Arsenal FC", "Liverpool FC"] },
+  { name: "away_team", values: ["Chelsea FC", "Man City"] },
+  { name: "matchday", values: [29, 30] }
+]
+→ 2 specs: Arsenal vs Chelsea md29, Liverpool vs Man City md30
+\`\`\`
 
 **When NOT to use templates:**
-- Single market with a single threshold — use \`submit_spec\`
-- Markets that differ in source, extraction, or transform — these are separate specs
-- Non-numeric variations (different tickers, different dates) — not supported`);
+- Single market with a single fixed threshold — use \`submit_spec\`
+- Markets that need fundamentally different data sources or extraction logic`);
 
   // 2. ResolutionSpec interface
   const typesSource = readFileSync(TYPES_FILE, "utf-8");
