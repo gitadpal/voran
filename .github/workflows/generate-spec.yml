@@ -81,10 +81,12 @@ jobs:
             # Single spec — use marketId for branch/title
             SPEC_FILE=$(ls /tmp/specs/*.json)
             MARKET_ID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$SPEC_FILE','utf8')).marketId)")
-            BRANCH="spec/${MARKET_ID}"
+            SAFE_BRANCH=$(echo "$MARKET_ID" | tr ' ' '-' | tr -cd '[:alnum:]-_/')
+            SAFE_NAME=$(echo "$MARKET_ID" | tr ' ' '-')
+            BRANCH="spec/${SAFE_BRANCH}"
             git checkout -b "$BRANCH"
-            cp "$SPEC_FILE" "specs/${MARKET_ID}.json"
-            git add "specs/${MARKET_ID}.json"
+            cp "$SPEC_FILE" "specs/${SAFE_NAME}.json"
+            git add "specs/${SAFE_NAME}.json"
             git commit -m "Add spec: ${MARKET_ID}"
             git push origin "$BRANCH"
 
@@ -112,8 +114,9 @@ jobs:
             SPEC_LIST=""
             for f in /tmp/specs/*.json; do
               MARKET_ID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$f','utf8')).marketId)")
-              cp "$f" "specs/${MARKET_ID}.json"
-              git add "specs/${MARKET_ID}.json"
+              SAFE_NAME=$(echo "$MARKET_ID" | tr ' ' '-')
+              cp "$f" "specs/${SAFE_NAME}.json"
+              git add "specs/${SAFE_NAME}.json"
               SPEC_LIST="${SPEC_LIST}- ${MARKET_ID}\n"
             done
 
