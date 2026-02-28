@@ -1,0 +1,29 @@
+{
+  "marketId": "amzn-closing-price-march2-2026-above-target",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/AMZN",
+    "query": {
+      "period1": 1772064000,
+      "period2": 1772323200,
+      "interval": "1d"
+    }
+  },
+  "extraction": {
+    "type": "script",
+    "lang": "javascript",
+    "code": "function extract(rawResponse) {\n  const data = JSON.parse(rawResponse);\n  \n  // Check if we have results\n  if (!data.chart || !data.chart.result || data.chart.result.length === 0) {\n    throw new Error('No chart data available');\n  }\n  \n  const result = data.chart.result[0];\n  const timestamps = result.timestamp || [];\n  const quotes = result.indicators?.quote || [];\n  const adjclose = result.indicators?.adjclose || [];\n  \n  if (timestamps.length === 0 || quotes.length === 0) {\n    throw new Error('No historical price data available');\n  }\n  \n  // Target date: March 2, 2026 (Unix timestamp 1772146800 for 00:00:00 EST)\n  // But we need to find the trading day on or before March 2\n  // March 2, 2026 is a Monday, so it should be a trading day\n  const targetDate = 1772146800; // March 2, 2026 00:00:00 EST (5:00:00 UTC)\n  \n  // Find the closest timestamp to targetDate\n  let closestIndex = -1;\n  let minDiff = Infinity;\n  \n  for (let i = 0; i < timestamps.length; i++) {\n    const diff = Math.abs(timestamps[i] - targetDate);\n    if (diff < minDiff) {\n      minDiff = diff;\n      closestIndex = i;\n    }\n  }\n  \n  if (closestIndex === -1) {\n    throw new Error('Could not find price data for target date');\n  }\n  \n  // Use adjusted close price (accounts for splits)\n  let closingPrice;\n  if (adjclose.length > 0 && adjclose[0].adjclose && adjclose[0].adjclose[closestIndex] !== undefined) {\n    closingPrice = adjclose[0].adjclose[closestIndex];\n  } else if (quotes[0].close && quotes[0].close[closestIndex] !== undefined) {\n    closingPrice = quotes[0].close[closestIndex];\n  } else {\n    throw new Error('Could not extract closing price for target date');\n  }\n  \n  return closingPrice.toString();\n}"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 200
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-03-03T00:00:00Z"
+  }
+}
