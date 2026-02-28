@@ -6,13 +6,32 @@ Deterministic single-event oracle for on-chain settlement. AI generates the reso
 
 ```mermaid
 flowchart LR
-    A["Natural language\n&quot;Will BTC > $100k?&quot;"] -->|AI agent| B[ResolutionSpec]
-    B -->|Deterministic resolver| C["fetch → extract → evaluate"]
-    C --> D[Signed payload]
-    D -->|Smart contract| E[Settle]
+    subgraph A["Layer A — AI Agent"]
+        direction TB
+        P["Natural language prompt"] --> T["Tools: search registry,\nfetch URLs, test extraction"]
+        T --> S["ResolutionSpec JSON"]
+    end
+
+    subgraph B["Layer B — Deterministic Resolver"]
+        direction TB
+        F["Fetch\nHTTP / Browser"] --> E["Extract\nJSONPath / Script"]
+        E --> X["Transform & Evaluate"]
+        X --> SIG["Hash & Sign\nkeccak256 + EIP-191"]
+    end
+
+    subgraph C["On-chain"]
+        V["VoranOracle\nverify + settle"]
+    end
+
+    A -->|spec committed| B
+    B -->|signed payload| C
+
+    style A fill:#e8f4f8,stroke:#2196F3
+    style B fill:#e8f8e8,stroke:#4CAF50
+    style C fill:#f8f0e8,stroke:#FF9800
 ```
 
-**Layer A** (flexible) — An agentic AI generates structured `ResolutionSpec` JSON from natural language. It can fetch URLs, inspect responses, test extractions, and iterate until the spec works.
+**Layer A** (flexible) — An agentic AI generates structured `ResolutionSpec` JSON from natural language. It searches registries and saved templates, fetches URLs, tests extractions, and iterates until the spec works. Supports interactive chat mode and batch template generation.
 
 **Layer B** (deterministic) — A frozen resolver engine executes the spec: fetches data, extracts a value, applies a transform, evaluates a rule, and signs the result. No AI at runtime.
 
@@ -177,12 +196,17 @@ Set one API key in `.env` (auto-detected), or specify with `--model provider/mod
 ## Resolver pipeline
 
 ```mermaid
-flowchart TD
-    S1[Load spec] --> S2[Fetch data\nHTTP or browser]
-    S2 --> S3[Receive response]
-    S3 --> S4[Extract value\nJSONPath or script sandbox]
-    S4 --> S5[Transform + evaluate rule]
-    S5 --> S6["Hash + sign\n(keccak256 + EIP-191)"]
+flowchart LR
+    subgraph resolve["resolve(spec)"]
+        direction LR
+        S1["📄 Load spec"] --> S2["🌐 Fetch\nHTTP / Puppeteer"]
+        S2 --> S3["🔍 Extract\nJSONPath / VM sandbox"]
+        S3 --> S4["⚙️ Transform\ndecimal / score_diff"]
+        S4 --> S5["📏 Evaluate rule\n> < ="]
+        S5 --> S6["🔐 Sign\nkeccak256 + EIP-191"]
+    end
+
+    style resolve fill:#f5f5f5,stroke:#666
 ```
 
 Output is a signed payload ready for on-chain settlement:
@@ -229,6 +253,25 @@ templates/      Saved template patterns for reuse
 ```
 
 ## CI/CD
+
+```mermaid
+flowchart LR
+    subgraph gen["generate-spec.yml"]
+        D["workflow_dispatch\n(prompt + model)"] --> AI["AI agent\ngenerates spec"]
+        AI --> PR["Create PR"]
+    end
+
+    subgraph verify["verify-spec.yml"]
+        TR["PR trigger\nspecs/*.json"] --> RES["Run resolver\non each spec"]
+        RES -->|pass| MERGE["Auto-merge\n+ delete branch"]
+        RES -->|fail| COMMENT["Comment\nfor review"]
+    end
+
+    PR -->|PAT_TOKEN| TR
+
+    style gen fill:#e8f4f8,stroke:#2196F3
+    style verify fill:#e8f8e8,stroke:#4CAF50
+```
 
 Two GitHub Actions workflows form a verify-then-merge pipeline:
 
