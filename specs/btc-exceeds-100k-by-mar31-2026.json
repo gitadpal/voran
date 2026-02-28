@@ -1,0 +1,23 @@
+{
+  "marketId": "btc-exceeds-100k-by-mar31-2026",
+  "source": {
+    "type": "http",
+    "method": "GET",
+    "url": "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+  },
+  "extraction": {
+    "type": "jsonpath",
+    "path": "$.data.amount"
+  },
+  "transform": {
+    "type": "decimal"
+  },
+  "rule": {
+    "type": "greater_than",
+    "value": 100000
+  },
+  "timestampRule": {
+    "type": "snapshot_at",
+    "utc": "2026-03-31T23:59:59Z"
+  }
+}
