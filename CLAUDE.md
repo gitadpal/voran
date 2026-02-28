@@ -58,7 +58,51 @@ templates/    Saved template patterns (reusable by LLM via search_templates tool
 
 **Registry**: JSON descriptors in `src/registry/sources/` define API endpoints, example responses, common JSONPaths, and applicable transforms. The AI agent searches these first before trying custom URLs.
 
-**CI/CD pipeline**: `generate-spec.yml` creates a PR with spec(s). `verify-spec.yml` triggers on PR, runs the full resolver on each spec file, auto-merges on success or comments requesting review on failure. Uses `PAT_TOKEN` secret for PR creation to ensure verify workflow triggers.
+**CI/CD pipeline**: Two-stage verify-then-merge pipeline. See "GitHub Actions Workflows" section below for details.
+
+## GitHub Actions Workflows
+
+### `generate-spec.yml` — AI Spec Generation
+
+Triggered manually via `workflow_dispatch` (Actions tab or `gh workflow run`). Takes a natural language prompt and produces a PR with one or more spec files.
+
+**Inputs:**
+- `prompt` (required) — Natural language market description (e.g. "Will BTC exceed $120k by March 2026?")
+- `title` (optional) — Short run title for the Actions UI. Defaults to the full prompt if empty.
+- `model` (optional) — LLM provider/model (e.g. `doubao/doubao-seed-2-0-pro-260215`, `openai/gpt-4o`). Auto-detects from available API keys if empty.
+- `max_steps` (optional, default `15`) — Maximum agent tool-calling steps.
+
+**Trigger via CLI:**
+```bash
+gh workflow run generate-spec.yml \
+  -f prompt="Will Arsenal win next match against Chelsea?" \
+  -f title="Arsenal vs Chelsea" \
+  -f model="doubao/doubao-seed-2-0-pro-260215"
+```
+
+**What it does:**
+1. Runs `generate-spec.ts` with `--dry-run --verbose --output-dir /tmp/specs`
+2. The AI agent researches data sources, tests extraction, and submits a validated spec
+3. Creates a PR on a `spec/{marketId}` branch (single spec) or `spec/batch-{timestamp}` branch (template batch)
+4. Uses `PAT_TOKEN` secret (not `GITHUB_TOKEN`) so the PR triggers the verify workflow
+
+**Required secrets:** `PAT_TOKEN`, plus at least one LLM API key (`ARK_API_KEY`, `DEEPSEEK_API_KEY`, etc.), plus data source keys as needed (`FOOTBALL_DATA_API_KEY`).
+
+**Timeout:** 7 minutes for the generation step.
+
+### `verify-spec.yml` — Spec Verification & Auto-merge
+
+Triggered automatically on PRs that modify `specs/*.json`. Runs the full deterministic resolver on each changed spec file.
+
+**What it does:**
+1. Finds changed spec files in the PR via `gh pr diff`
+2. Runs `run-resolver.ts` on each spec file
+3. On success: auto-merges the PR with squash and deletes the branch
+4. On failure: posts a comment with a link to the failing workflow logs for manual review
+
+**Required secrets:** `RESOLVER_PRIVATE_KEY`, `FOOTBALL_DATA_API_KEY` (and any other data source API keys used by specs).
+
+**When it doesn't trigger:** If the PR was created with `GITHUB_TOKEN` instead of `PAT_TOKEN`, GitHub won't fire the `pull_request` event. This is why `generate-spec.yml` uses `PAT_TOKEN`.
 
 ## Conventions
 
