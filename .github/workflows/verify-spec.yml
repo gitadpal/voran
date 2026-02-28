@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -77,7 +78,7 @@ jobs:
           gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
 
       - name: Comment on failure
-        if: failure() && steps.specs.outputs.found == 'true'
+        if: failure() && steps.resolve.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
