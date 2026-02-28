@@ -1,0 +1,61 @@
+name: Generate Spec
+
+run-name: "Generate: ${{ inputs.prompt }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Natural language market description (e.g. 'Will BTC exceed $120k by March 2026?')"
+        required: true
+        type: string
+      model:
+        description: "LLM provider/model (e.g. openai/gpt-4o, anthropic/claude-sonnet-4-20250514). Leave empty to auto-detect."
+        required: false
+        type: string
+      max_steps:
+        description: "Maximum agent steps"
+        required: false
+        default: "15"
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx puppeteer browsers install chrome
+
+      - name: Generate spec
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+        run: |
+          ARGS=("${{ inputs.prompt }}" --dry-run --verbose --max-steps "${{ inputs.max_steps }}" --output /tmp/spec.json)
+          if [ -n "${{ inputs.model }}" ]; then
+            ARGS+=(--model "${{ inputs.model }}")
+          fi
+          npx tsx src/cli/generate-spec.ts "${ARGS[@]}"
+
+      - name: Show generated spec
+        run: |
+          echo "=== Generated Spec ==="
+          cat /tmp/spec.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-spec
+          path: /tmp/spec.json
+          retention-days: 30
